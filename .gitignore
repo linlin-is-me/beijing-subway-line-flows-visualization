@@ -1,0 +1,6 @@
+# Temp analysis files
+svg_group_ids.json
+svg_ids.txt
+
+# Dev server
+__pycache__/

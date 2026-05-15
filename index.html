@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>北京地铁客流量可视化系统</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <div class="header">
+    <h1>北京地铁客流量可视化系统</h1>
+    <div id="selected-date-label">加载中…</div>
+  </div>
+
+  <div class="controls">
+    <label for="date-picker">选择日期：</label>
+    <input type="date" id="date-picker" disabled>
+  </div>
+
+  <div id="loading">正在加载数据…</div>
+
+  <div class="svg-wrapper">
+    <div id="svg-container"></div>
+  </div>
+
+  <div class="legend-panel">
+    <div id="legend"></div>
+  </div>
+
+  <div class="footer">
+    数据范围：2019-01-01 ~ 2025-12-31 | 客流量单位为万人·次
+  </div>
+
+  <!-- Scripts (order matters: dependencies first) -->
+  <script src="js/lineMapping.js"></script>
+  <script src="js/flowClassifier.js"></script>
+  <script src="js/dataLoader.js"></script>
+  <script src="js/svgRenderer.js"></script>
+  <script src="js/main.js"></script>
+
+</body>
+</html>
