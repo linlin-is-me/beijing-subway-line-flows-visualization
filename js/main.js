@@ -1,7 +1,9 @@
 /**
- * Main controller: wires data loading, mode switching, classification, and rendering.
+ * Main controller: wires data loading, mode switching, classification,
+ * rendering, and time-series playback animation.
  */
 (async function main() {
+  // ── DOM refs ─────────────────────────────────────────────────────
   const dayPicker    = document.getElementById('day-picker');
   const monthPicker  = document.getElementById('month-picker');
   const yearPicker   = document.getElementById('year-picker');
@@ -11,10 +13,25 @@
   const loadingEl    = document.getElementById('loading');
   const titleEl      = document.getElementById('selected-date-label');
 
-  let currentMode = 'day'; // 'day' | 'month' | 'year'
-  let flowData;
+  // Player
+  const btnPlay      = document.getElementById('btn-play');
+  const btnStepBack  = document.getElementById('btn-step-back');
+  const btnStepFwd   = document.getElementById('btn-step-fwd');
+  const speedSel     = document.getElementById('speed-select');
+  const progressFill = document.getElementById('progress-bar-fill');
+  const progressLbl  = document.getElementById('progress-label');
 
-  // ── Phase 1: Load data ─────────────────────────────────────────
+  let currentMode  = 'day';
+  let flowData;
+  let svgRoot;
+
+  // Player state
+  let playing      = false;
+  let playTimer    = null;
+  let seqIndex     = 0;       // current position in the current-mode sequence
+  let seqKeys      = [];      // e.g. ['2019-01', '2019-02', ...] or ['2019', ...]
+
+  // ── Phase 1: Load data ──────────────────────────────────────────
   try {
     flowData = await DataLoader.load();
   } catch (err) {
@@ -23,33 +40,27 @@
     console.error(err);
     return;
   }
-
   if (!flowData.days.length) {
     loadingEl.textContent = '没有可用的日期数据';
     loadingEl.classList.add('error');
     return;
   }
 
-  // ── Phase 2: Init pickers ──────────────────────────────────────
-
-  // Day picker
+  // ── Phase 2: Init pickers ───────────────────────────────────────
   dayPicker.min   = flowData.days[0];
   dayPicker.max   = flowData.days[flowData.days.length - 1];
   dayPicker.value = flowData.days[flowData.days.length - 1];
 
-  // Month picker
   monthPicker.min   = flowData.months[0];
   monthPicker.max   = flowData.months[flowData.months.length - 1];
   monthPicker.value = flowData.months[flowData.months.length - 1];
 
-  // Year picker
   yearPicker.innerHTML = flowData.years
     .map(y => `<option value="${y}">${y} 年</option>`)
     .join('');
   yearPicker.value = flowData.years[flowData.years.length - 1];
 
-  // ── Phase 3: Load SVG ──────────────────────────────────────────
-  let svgRoot;
+  // ── Phase 3: Load SVG ───────────────────────────────────────────
   try {
     const resp = await fetch('Beijing_Subway_System_Map_zh.svg');
     if (!resp.ok) throw new Error(`SVG load failed: ${resp.status}`);
@@ -63,31 +74,158 @@
     return;
   }
 
-  // ── Phase 4: Static legend ─────────────────────────────────────
+  // ── Phase 4: Static legend + initial render ─────────────────────
   renderLegend();
-
-  // ── Phase 5: Initial render + bind events ──────────────────────
   loadingEl.style.display = 'none';
   enablePickers(true);
+  rebuildSequence();
   updateVisualization();
 
+  // ── Phase 5: Mode buttons ───────────────────────────────────────
   modeBtns.forEach(btn => btn.addEventListener('click', () => {
     const mode = btn.dataset.mode;
     if (mode === currentMode) return;
+    stopPlayback();
     currentMode = mode;
     modeBtns.forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
     switchPicker();
+    rebuildSequence();
     updateVisualization();
   }));
 
-  dayPicker.addEventListener('change', updateVisualization);
-  monthPicker.addEventListener('change', updateVisualization);
-  yearPicker.addEventListener('change', updateVisualization);
+  // ── Phase 6: Picker change ──────────────────────────────────────
+  dayPicker.addEventListener('change', onPickerChange);
+  monthPicker.addEventListener('change', onPickerChange);
+  yearPicker.addEventListener('change', onPickerChange);
 
-  // ── Functions ───────────────────────────────────────────────────
+  function onPickerChange() {
+    if (playing) return; // ignore during playback
+    seqIndex = getCurrentIndex();
+    updateVisualization();
+  }
+
+  // ── Phase 7: Player buttons ─────────────────────────────────────
+  btnPlay.addEventListener('click', () => {
+    if (playing) { stopPlayback(); } else { startPlayback(); }
+  });
+  btnStepBack.addEventListener('click', () => { stopPlayback(); stepBack(); });
+  btnStepFwd.addEventListener('click', () => { stopPlayback(); stepForward(); });
+  speedSel.addEventListener('change', () => {
+    if (playing) { stopPlayback(); startPlayback(); }
+  });
+  updatePlayerButtons();
+
+  // ═══════════════════════════════════════════════════════════════
+  //  PLAYER
+  // ═══════════════════════════════════════════════════════════════
+
+  function getSequence() {
+    if (currentMode === 'day')   return flowData.days;
+    if (currentMode === 'month') return flowData.months;
+    return flowData.years;
+  }
+
+  function rebuildSequence() {
+    seqKeys = getSequence();
+    seqIndex = getCurrentIndex();
+    updateProgressUI();
+  }
+
+  function getCurrentIndex() {
+    const keys = getSequence();
+    const val = getPickerValue();
+    const idx = keys.indexOf(val);
+    return idx >= 0 ? idx : keys.length - 1;
+  }
+
+  function getPickerValue() {
+    if (currentMode === 'day')   return dayPicker.value;
+    if (currentMode === 'month') return monthPicker.value;
+    return yearPicker.value;
+  }
+
+  function setPickerValue(val) {
+    if (currentMode === 'day')   dayPicker.value = val;
+    else if (currentMode === 'month') monthPicker.value = val;
+    else yearPicker.value = val;
+  }
+
+  function startPlayback() {
+    if (playing) return;
+    playing = true;
+    btnPlay.textContent = '⏸';
+    btnPlay.classList.add('playing');
+    disableControlsDuringPlayback(true);
+    advancePlayback();
+  }
+
+  function stopPlayback() {
+    playing = false;
+    if (playTimer) { clearTimeout(playTimer); playTimer = null; }
+    btnPlay.textContent = '▶';
+    btnPlay.classList.remove('playing');
+    disableControlsDuringPlayback(false);
+  }
+
+  function disableControlsDuringPlayback(lock) {
+    modeBtns.forEach(b => b.disabled = lock);
+    dayPicker.disabled = lock || currentMode !== 'day';
+    monthPicker.disabled = lock || currentMode !== 'month';
+    yearPicker.disabled = lock || currentMode !== 'year';
+  }
+
+  function advancePlayback() {
+    if (!playing) return;
+    if (seqIndex >= seqKeys.length - 1) {
+      // Reached end — pause
+      stopPlayback();
+      return;
+    }
+    seqIndex++;
+    setPickerValue(seqKeys[seqIndex]);
+    updateVisualization();
+    updateProgressUI();
+
+    const delay = parseInt(speedSel.value, 10);
+    playTimer = setTimeout(advancePlayback, delay);
+  }
+
+  function stepForward() {
+    if (seqIndex >= seqKeys.length - 1) return;
+    seqIndex++;
+    setPickerValue(seqKeys[seqIndex]);
+    updateVisualization();
+    updateProgressUI();
+  }
+
+  function stepBack() {
+    if (seqIndex <= 0) return;
+    seqIndex--;
+    setPickerValue(seqKeys[seqIndex]);
+    updateVisualization();
+    updateProgressUI();
+  }
+
+  function updateProgressUI() {
+    const total = seqKeys.length;
+    progressLbl.textContent = total ? `${seqIndex + 1} / ${total}` : '0 / 0';
+    progressFill.style.width = total ? `${((seqIndex + 1) / total * 100).toFixed(1)}%` : '0%';
+  }
+
+  function updatePlayerButtons() {
+    btnStepBack.disabled = false;
+    btnStepFwd.disabled = false;
+    btnPlay.disabled = false;
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  //  CORE LOGIC
+  // ═══════════════════════════════════════════════════════════════
 
   function enablePickers(on) {
-    dayPicker.disabled = monthPicker.disabled = yearPicker.disabled = !on;
+    dayPicker.disabled = !on;
+    monthPicker.disabled = !on;
+    yearPicker.disabled = !on;
   }
 
   function switchPicker() {
@@ -118,9 +256,9 @@
 
     SvgRenderer.resetAll(svgRoot);
 
-    const lineTiers     = classifyFlows(lineFlows);
-    const groupTierMap  = buildSvgGroupTierMap(lineTiers);
-    const glowSvgId     = findTopSvgGroup(lineFlows);
+    const lineTiers    = classifyFlows(lineFlows);
+    const groupTierMap = buildSvgGroupTierMap(lineTiers);
+    const glowSvgId    = findTopSvgGroup(lineFlows);
 
     SvgRenderer.render(svgRoot, groupTierMap, glowSvgId);
 

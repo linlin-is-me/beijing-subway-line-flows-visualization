@@ -15,14 +15,35 @@
 
   <div class="controls">
     <div class="mode-selector">
-      <button class="mode-btn active" data-mode="day">日</button>
-      <button class="mode-btn" data-mode="month">月</button>
-      <button class="mode-btn" data-mode="year">年</button>
+      <button type="button" class="mode-btn active" data-mode="day">日</button>
+      <button type="button" class="mode-btn" data-mode="month">月</button>
+      <button type="button" class="mode-btn" data-mode="year">年</button>
     </div>
     <div class="picker-wrap">
       <input type="date" id="day-picker" disabled>
       <input type="month" id="month-picker" disabled style="display:none">
       <select id="year-picker" disabled style="display:none"></select>
+    </div>
+  </div>
+
+  <div class="player-bar">
+    <button type="button" id="btn-step-back" title="后退一步">⏮</button>
+    <button type="button" id="btn-play" class="btn-play" title="播放 / 暂停">▶</button>
+    <button type="button" id="btn-step-fwd" title="前进一步">⏭</button>
+    <div class="speed-selector">
+      <label>速度</label>
+      <select id="speed-select">
+        <option value="2000">0.5x</option>
+        <option value="1000" selected>1x</option>
+        <option value="500">2x</option>
+        <option value="250">4x</option>
+      </select>
+    </div>
+    <div class="progress-wrap">
+      <span id="progress-label">0 / 0</span>
+      <div class="progress-bar-bg">
+        <div id="progress-bar-fill" class="progress-bar-fill"></div>
+      </div>
     </div>
   </div>
 

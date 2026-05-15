@@ -284,6 +284,106 @@ body {
   flex-shrink: 0;
 }
 
+/* ── Player Bar ───────────────────────────────────── */
+
+.player-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 20px 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.player-bar button {
+  width: 36px;
+  height: 36px;
+  border: 1px solid #444;
+  border-radius: 6px;
+  background: #16213e;
+  color: #ccc;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.player-bar button:hover {
+  background: #1f3058;
+  border-color: #3498db;
+}
+
+.player-bar button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.btn-play {
+  font-size: 14px !important;
+}
+
+.btn-play.playing {
+  color: #e74c3c;
+}
+
+.speed-selector {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.speed-selector label {
+  font-size: 13px;
+  color: #888;
+}
+
+.speed-selector select {
+  padding: 4px 8px;
+  border: 1px solid #444;
+  border-radius: 4px;
+  background: #16213e;
+  color: #eee;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+}
+
+.progress-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 180px;
+}
+
+#progress-label {
+  font-size: 12px;
+  color: #888;
+  white-space: nowrap;
+  min-width: 80px;
+  text-align: right;
+}
+
+.progress-bar-bg {
+  flex: 1;
+  height: 6px;
+  background: #0f0f23;
+  border-radius: 3px;
+  overflow: hidden;
+  min-width: 100px;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: #3498db;
+  border-radius: 3px;
+  transition: width 0.1s linear;
+  width: 0%;
+}
+
+/* ── Footer ────────────────────────────────────────── */
+
 .footer {
   text-align: center;
   padding: 10px;
