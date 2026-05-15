@@ -14,8 +14,16 @@
   </div>
 
   <div class="controls">
-    <label for="date-picker">选择日期：</label>
-    <input type="date" id="date-picker" disabled>
+    <div class="mode-selector">
+      <button class="mode-btn active" data-mode="day">日</button>
+      <button class="mode-btn" data-mode="month">月</button>
+      <button class="mode-btn" data-mode="year">年</button>
+    </div>
+    <div class="picker-wrap">
+      <input type="date" id="day-picker" disabled>
+      <input type="month" id="month-picker" disabled style="display:none">
+      <select id="year-picker" disabled style="display:none"></select>
+    </div>
   </div>
 
   <div id="loading">正在加载数据…</div>
@@ -26,6 +34,11 @@
 
   <div class="legend-panel">
     <div id="legend"></div>
+  </div>
+
+  <div class="ranking-section">
+    <h2 class="ranking-title">线路客流量排名</h2>
+    <div id="ranking-container"></div>
   </div>
 
   <div class="footer">

@@ -5,13 +5,44 @@
  * - Only modify elements where fill="none" (paths/polylines, not station fills)
  * - Skip elements with stroke="none" or stroke="#fff" or stroke="#ffffff"
  *   (white station-gap masks should stay thin)
+ * - Tier 5 (highest flow) gets a fluorescent glow filter
  */
 
 const SvgRenderer = (() => {
   const DEFAULT_WIDTH = 5;
+  const GLOW_FILTER_ID = 'metro-glow';
+  let filterInjected = false;
 
-  function render(svgRoot, svgGroupTierMap) {
-    // Collect stats for legend
+  function ensureGlowFilter(svgRoot) {
+    if (filterInjected) return;
+    filterInjected = true;
+
+    const defs = svgRoot.querySelector('defs');
+    if (!defs) return;
+
+    const filter = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
+    filter.setAttribute('id', GLOW_FILTER_ID);
+    filter.setAttribute('x', '-40%');
+    filter.setAttribute('y', '-40%');
+    filter.setAttribute('width', '180%');
+    filter.setAttribute('height', '180%');
+
+    // Outer glow — thicker, more transparent
+    filter.innerHTML = `
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur1" />
+      <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" result="blur2" />
+      <feMerge>
+        <feMergeNode in="blur1" />
+        <feMergeNode in="blur2" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    `;
+    defs.appendChild(filter);
+  }
+
+  function render(svgRoot, svgGroupTierMap, glowSvgId = null) {
+    ensureGlowFilter(svgRoot);
+
     const stats = {};
 
     for (const [svgId, tier] of Object.entries(svgGroupTierMap)) {
@@ -23,18 +54,23 @@ const SvgRenderer = (() => {
 
       const width = STROKE_WIDTH_MAP[tier];
 
-      // Modify all path and polyline elements that have a colored stroke
       const shapes = group.querySelectorAll('path, polyline, line, polygon');
       for (const shape of shapes) {
         const fill = shape.getAttribute('fill');
         const stroke = shape.getAttribute('stroke');
 
-        // Skip if not a track line (has fill, or no stroke, or white stroke)
         if (fill && fill !== 'none') continue;
         if (!stroke || stroke === 'none') continue;
         if (stroke.toLowerCase() === '#fff' || stroke.toLowerCase() === '#ffffff') continue;
 
         shape.setAttribute('stroke-width', width);
+
+        // Only the single top-flow line gets the fluorescent glow
+        if (svgId === glowSvgId) {
+          shape.setAttribute('filter', `url(#${GLOW_FILTER_ID})`);
+        } else {
+          shape.removeAttribute('filter');
+        }
       }
 
       stats[svgId] = { tier, width };
@@ -44,7 +80,6 @@ const SvgRenderer = (() => {
   }
 
   function resetAll(svgRoot) {
-    // Find all known SVG line groups and reset to default width
     const allGroupIds = new Set(
       Object.values(LINE_MAPPING).map(m => m.svgId)
     );
@@ -61,6 +96,7 @@ const SvgRenderer = (() => {
         if (!stroke || stroke === 'none') continue;
         if (stroke.toLowerCase() === '#fff' || stroke.toLowerCase() === '#ffffff') continue;
         shape.setAttribute('stroke-width', DEFAULT_WIDTH);
+        shape.removeAttribute('filter');
       }
     }
   }

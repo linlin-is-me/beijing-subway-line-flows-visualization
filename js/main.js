@@ -1,16 +1,20 @@
 /**
- * Main controller: wires data loading, classification, and rendering.
+ * Main controller: wires data loading, mode switching, classification, and rendering.
  */
-
 (async function main() {
-  const dateInput = document.getElementById('date-picker');
+  const dayPicker    = document.getElementById('day-picker');
+  const monthPicker  = document.getElementById('month-picker');
+  const yearPicker   = document.getElementById('year-picker');
+  const modeBtns     = document.querySelectorAll('.mode-btn');
   const svgContainer = document.getElementById('svg-container');
-  const legendContainer = document.getElementById('legend');
-  const loadingEl = document.getElementById('loading');
-  const titleEl = document.getElementById('selected-date-label');
+  const legendCont   = document.getElementById('legend');
+  const loadingEl    = document.getElementById('loading');
+  const titleEl      = document.getElementById('selected-date-label');
 
-  // ── Phase 1: Load flow data ────────────────────────────────────
+  let currentMode = 'day'; // 'day' | 'month' | 'year'
   let flowData;
+
+  // ── Phase 1: Load data ─────────────────────────────────────────
   try {
     flowData = await DataLoader.load();
   } catch (err) {
@@ -20,26 +24,36 @@
     return;
   }
 
-  // Initialize date picker
-  const dates = flowData.dates;
-  if (dates.length === 0) {
+  if (!flowData.days.length) {
     loadingEl.textContent = '没有可用的日期数据';
     loadingEl.classList.add('error');
     return;
   }
 
-  dateInput.min = dates[0];
-  dateInput.max = dates[dates.length - 1];
-  dateInput.value = dates[dates.length - 1]; // default to latest
-  dateInput.disabled = false;
+  // ── Phase 2: Init pickers ──────────────────────────────────────
 
-  // ── Phase 2: Load SVG ──────────────────────────────────────────
+  // Day picker
+  dayPicker.min   = flowData.days[0];
+  dayPicker.max   = flowData.days[flowData.days.length - 1];
+  dayPicker.value = flowData.days[flowData.days.length - 1];
+
+  // Month picker
+  monthPicker.min   = flowData.months[0];
+  monthPicker.max   = flowData.months[flowData.months.length - 1];
+  monthPicker.value = flowData.months[flowData.months.length - 1];
+
+  // Year picker
+  yearPicker.innerHTML = flowData.years
+    .map(y => `<option value="${y}">${y} 年</option>`)
+    .join('');
+  yearPicker.value = flowData.years[flowData.years.length - 1];
+
+  // ── Phase 3: Load SVG ──────────────────────────────────────────
   let svgRoot;
   try {
-    const svgResp = await fetch('Beijing_Subway_System_Map_zh.svg');
-    if (!svgResp.ok) throw new Error(`SVG load failed: ${svgResp.status}`);
-    const svgText = await svgResp.text();
-    svgContainer.innerHTML = svgText;
+    const resp = await fetch('Beijing_Subway_System_Map_zh.svg');
+    if (!resp.ok) throw new Error(`SVG load failed: ${resp.status}`);
+    svgContainer.innerHTML = await resp.text();
     svgRoot = svgContainer.querySelector('svg');
     if (!svgRoot) throw new Error('No <svg> element found');
   } catch (err) {
@@ -49,49 +63,75 @@
     return;
   }
 
-  // ── Phase 3: Render legend (static, always visible) ─────────────
+  // ── Phase 4: Static legend ─────────────────────────────────────
   renderLegend();
 
-  // ── Phase 4: Render initial date ────────────────────────────────
+  // ── Phase 5: Initial render + bind events ──────────────────────
   loadingEl.style.display = 'none';
+  enablePickers(true);
   updateVisualization();
 
-  // ── Phase 5: Bind date change ───────────────────────────────────
-  dateInput.addEventListener('change', updateVisualization);
+  modeBtns.forEach(btn => btn.addEventListener('click', () => {
+    const mode = btn.dataset.mode;
+    if (mode === currentMode) return;
+    currentMode = mode;
+    modeBtns.forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+    switchPicker();
+    updateVisualization();
+  }));
+
+  dayPicker.addEventListener('change', updateVisualization);
+  monthPicker.addEventListener('change', updateVisualization);
+  yearPicker.addEventListener('change', updateVisualization);
 
   // ── Functions ───────────────────────────────────────────────────
 
-  function updateVisualization() {
-    const date = dateInput.value;
-    if (!date) return;
+  function enablePickers(on) {
+    dayPicker.disabled = monthPicker.disabled = yearPicker.disabled = !on;
+  }
 
-    const lineFlows = flowData.getFlowByDate(date);
+  function switchPicker() {
+    dayPicker.style.display   = currentMode === 'day'   ? '' : 'none';
+    monthPicker.style.display = currentMode === 'month' ? '' : 'none';
+    yearPicker.style.display  = currentMode === 'year'  ? '' : 'none';
+  }
+
+  function getCurrentFlow() {
+    if (currentMode === 'day')   return flowData.getFlowByDay(dayPicker.value);
+    if (currentMode === 'month') return flowData.getFlowByMonth(monthPicker.value);
+    return flowData.getFlowByYear(yearPicker.value);
+  }
+
+  function getCurrentLabel() {
+    if (currentMode === 'day')   return dayPicker.value;
+    if (currentMode === 'month') return monthPicker.value;
+    return `${yearPicker.value} 年`;
+  }
+
+  function updateVisualization() {
+    const label = getCurrentLabel();
+    const lineFlows = getCurrentFlow();
     if (!lineFlows) {
-      titleEl.textContent = `${date} — 无数据`;
+      titleEl.textContent = `${label} — 无数据`;
       return;
     }
 
-    // Reset all lines to default width first
     SvgRenderer.resetAll(svgRoot);
 
-    // Classify
-    const lineTiers = classifyFlows(lineFlows);
+    const lineTiers     = classifyFlows(lineFlows);
+    const groupTierMap  = buildSvgGroupTierMap(lineTiers);
+    const glowSvgId     = findTopSvgGroup(lineFlows);
 
-    // Build SVG group → tier map (handles combined lines)
-    const groupTierMap = buildSvgGroupTierMap(lineTiers);
+    SvgRenderer.render(svgRoot, groupTierMap, glowSvgId);
 
-    // Render
-    SvgRenderer.render(svgRoot, groupTierMap);
+    titleEl.textContent = `${label} 客流量分布`;
 
-    // Update title
-    titleEl.textContent = `${date} 客流量分布`;
-
-    // Update legend with current tier info
     updateLegend(lineFlows, lineTiers);
+    updateRanking(lineFlows, lineTiers);
   }
 
   function renderLegend() {
-    legendContainer.innerHTML = '';
+    legendCont.innerHTML = '';
     for (let tier = 5; tier >= 1; tier--) {
       const div = document.createElement('div');
       div.className = 'legend-item';
@@ -103,12 +143,11 @@
         <span class="legend-label">${TIER_LABELS[tier]}</span>
         <span class="legend-width">${STROKE_WIDTH_MAP[tier]}px</span>
       `;
-      legendContainer.appendChild(div);
+      legendCont.appendChild(div);
     }
   }
 
   function updateLegend(lineFlows, lineTiers) {
-    // Add tier counts and threshold info
     const values = Object.values(lineFlows).filter(v => typeof v === 'number');
     const sorted = [...values].sort((a, b) => a - b);
 
@@ -125,13 +164,12 @@
       `> ${p80.toFixed(1)} 万`
     ];
 
-    const items = legendContainer.querySelectorAll('.legend-item');
+    const items = legendCont.querySelectorAll('.legend-item');
     items.forEach((item, i) => {
       const tier = 5 - i;
       const label = item.querySelector('.legend-label');
-      const oldThreshold = item.querySelector('.legend-threshold');
-      if (oldThreshold) oldThreshold.remove();
-
+      const old = item.querySelector('.legend-threshold');
+      if (old) old.remove();
       if (label) {
         const span = document.createElement('span');
         span.className = 'legend-threshold';
@@ -139,5 +177,32 @@
         label.after(span);
       }
     });
+  }
+
+  function updateRanking(lineFlows, lineTiers) {
+    const container = document.getElementById('ranking-container');
+    if (!container) return;
+
+    const allValues = Object.values(lineFlows).filter(v => typeof v === 'number');
+    const maxFlow = Math.max(...allValues, 1);
+
+    const sorted = Object.entries(lineFlows)
+      .map(([name, flow]) => ({ name, flow, tier: lineTiers[name] }))
+      .sort((a, b) => b.flow - a.flow);
+
+    container.innerHTML = sorted.map((entry, i) => {
+      const barPct = (entry.flow / maxFlow * 100).toFixed(1);
+      const tierColor = TIER_COLORS[entry.tier];
+      return `
+        <div class="ranking-row">
+          <span class="rank-num">${i + 1}</span>
+          <span class="rank-line-name">${entry.name}</span>
+          <span class="rank-bar-wrap">
+            <span class="rank-bar" style="width:${barPct}%;background:${tierColor}"></span>
+          </span>
+          <span class="rank-flow">${entry.flow.toFixed(1)}<span class="rank-flow-unit"> 万</span></span>
+          <span class="rank-tier-dot" style="background:${tierColor}"></span>
+        </div>`;
+    }).join('');
   }
 })();

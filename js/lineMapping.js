@@ -60,3 +60,31 @@ function buildSvgGroupTierMap(lineTierMap) {
 
   return groupTiers;
 }
+
+/**
+ * Find the SVG group ID with the highest passenger flow.
+ * For combined lines, takes the max of the two partners.
+ */
+function findTopSvgGroup(lineFlowMap) {
+  let topSvgId = null;
+  let topFlow = -1;
+
+  const processed = new Set();
+  for (const [lineName, config] of Object.entries(LINE_MAPPING)) {
+    if (processed.has(config.svgId)) continue;
+    processed.add(config.svgId);
+
+    let flow = lineFlowMap[lineName] ?? 0;
+    if (config.combined) {
+      const partnerFlow = lineFlowMap[config.partner] ?? 0;
+      flow = Math.max(flow, partnerFlow);
+    }
+
+    if (flow > topFlow) {
+      topFlow = flow;
+      topSvgId = config.svgId;
+    }
+  }
+
+  return topSvgId;
+}
