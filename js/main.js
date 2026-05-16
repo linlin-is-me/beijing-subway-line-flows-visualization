@@ -84,6 +84,8 @@
     return;
   }
 
+  TooltipManager.init(svgRoot);
+
   // ── Phase 4: Initial render ─────────────────────────────────────
   renderLegend();
   loadingEl.style.display = 'none';
@@ -206,6 +208,25 @@
     return `${dayPicker.value}  ${seqKeys[seqIndex]}`;
   }
 
+  function computeRanking(lineFlows) {
+    if (!lineFlows) return null;
+    const ranking = {};
+    Object.entries(lineFlows)
+      .filter(([, v]) => typeof v === 'number')
+      .sort((a, b) => b[1] - a[1])
+      .forEach(([name], i) => { ranking[name] = i + 1; });
+    return ranking;
+  }
+
+  function getPrevFlowForIndex() {
+    if (seqIndex <= 0) return null;
+    const prevKey = seqKeys[seqIndex - 1];
+    if (currentMode === 'year')  return flowData.getFlowByYear(prevKey);
+    if (currentMode === 'month') return flowData.getFlowByMonth(prevKey);
+    if (currentMode === 'day')   return flowData.getFlowByDay(prevKey);
+    return flowData.getFlowByHour(dayPicker.value, prevKey);
+  }
+
   // ═══════════════════════════════════════════════════════════════════
   //  PLAYER
   // ═══════════════════════════════════════════════════════════════════
@@ -278,6 +299,12 @@
       titleEl.textContent = `${label} — 无数据`;
       return;
     }
+
+    // Tooltip: update data for the next hover
+    const curRanking = computeRanking(lineFlows);
+    const prevFlows  = getPrevFlowForIndex();
+    const prevRanks  = computeRanking(prevFlows);
+    TooltipManager.updateData(lineFlows, curRanking, prevRanks);
 
     SvgRenderer.resetAll(svgRoot);
 
