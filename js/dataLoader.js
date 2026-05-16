@@ -1,71 +1,95 @@
 /**
- * Loads and indexes the flow data JSON.
- * Provides three granularities: daily, monthly, yearly.
- * Monthly/yearly values are sums of daily flows for the period.
+ * Loads and indexes hourly flow data (bj_subway_flows.json).
+ * Aggregates: hourly → daily → monthly → yearly.
  */
 
+const HOUR_SLOTS = [
+  '5:00-6:00','6:00-7:00','7:00-8:00','8:00-9:00','9:00-10:00',
+  '10:00-11:00','11:00-12:00','12:00-13:00','13:00-14:00','14:00-15:00',
+  '15:00-16:00','16:00-17:00','17:00-18:00','18:00-19:00','19:00-20:00',
+  '20:00-21:00','21:00-22:00','22:00-23:00'
+];
+
 const DataLoader = (() => {
-  let dateIndex = null;     // Map<"YYYY-MM-DD", { lineName: flow }>
-  let monthIndex = null;   // Map<"YYYY-MM",   { lineName: sum }>
-  let yearIndex = null;    // Map<"YYYY",      { lineName: sum }>
-  let sortedDays = null;
-  let sortedMonths = null;
-  let sortedYears = null;
+  let dateIndex   = new Map(); // "YYYY-MM-DD" → { line: total }
+  let hourIndex   = new Map(); // "YYYY-MM-DD|HH:00-HH:00" → { line: value }
+  let monthIndex  = new Map(); // "YYYY-MM" → { line: sum }
+  let yearIndex   = new Map(); // "YYYY" → { line: sum }
+  let daysByMonth = new Map(); // "YYYY-MM" → ["YYYY-MM-DD", ...]
+  let sortedDays  = [];
+  let sortedMonths = [];
+  let sortedYears  = [];
 
   async function load() {
-    if (dateIndex) return buildResult();
+    if (dateIndex.size) return buildResult();
 
-    const resp = await fetch('flows_data/bj_subway_line_flows.json');
-    if (!resp.ok) throw new Error(`Failed to load flow data: ${resp.status}`);
+    const resp = await fetch('flows_data/bj_subway_flows.json');
+    if (!resp.ok) throw new Error(`Failed to load: ${resp.status}`);
     const raw = await resp.json();
-
-    dateIndex = new Map();
-    monthIndex = new Map();
-    yearIndex = new Map();
 
     for (const entry of raw) {
       const date = entry.date;
-      if (!date || date.includes('003')) continue; // skip malformed like "2021-10-003"
+      if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
 
-      const parts = date.split('-');
-      if (parts.length !== 3) continue;
-      if (parts[1].length !== 2 || parts[2].length !== 2) continue;
+      const [y, m] = date.split('-');
+      const monthKey = `${y}-${m}`;
 
-      const year = parts[0];
-      const month = `${year}-${parts[1]}`;
+      // Aggregate daily total from hourly slots
+      const dayTotal = {};
+      for (const [line, hours] of Object.entries(entry.lines)) {
+        let sum = 0;
+        for (const slot of HOUR_SLOTS) {
+          const v = hours[slot] || 0;
+          sum += v;
+          // Hourly index: key = "date|slot"
+          hourIndex.set(`${date}|${slot}`, hourIndex.get(`${date}|${slot}`) || {});
+          hourIndex.get(`${date}|${slot}`)[line] = v;
+        }
+        dayTotal[line] = sum;
+      }
+      dateIndex.set(date, dayTotal);
 
-      dateIndex.set(date, entry.lines);
+      // Days per month
+      if (!daysByMonth.has(monthKey)) daysByMonth.set(monthKey, []);
+      daysByMonth.get(monthKey).push(date);
 
-      // Aggregate into month
-      if (!monthIndex.has(month)) monthIndex.set(month, {});
-      const mAcc = monthIndex.get(month);
-      for (const [line, val] of Object.entries(entry.lines)) {
+      // Month aggregation
+      if (!monthIndex.has(monthKey)) monthIndex.set(monthKey, {});
+      const mAcc = monthIndex.get(monthKey);
+      for (const [line, val] of Object.entries(dayTotal)) {
         mAcc[line] = (mAcc[line] || 0) + val;
       }
 
-      // Aggregate into year
-      if (!yearIndex.has(year)) yearIndex.set(year, {});
-      const yAcc = yearIndex.get(year);
-      for (const [line, val] of Object.entries(entry.lines)) {
+      // Year aggregation
+      if (!yearIndex.has(y)) yearIndex.set(y, {});
+      const yAcc = yearIndex.get(y);
+      for (const [line, val] of Object.entries(dayTotal)) {
         yAcc[line] = (yAcc[line] || 0) + val;
       }
     }
 
-    sortedDays = Array.from(dateIndex.keys()).sort();
+    sortedDays   = Array.from(dateIndex.keys()).sort();
     sortedMonths = Array.from(monthIndex.keys()).sort();
-    sortedYears = Array.from(yearIndex.keys()).sort();
+    sortedYears  = Array.from(yearIndex.keys()).sort();
+    // Sort days within each month
+    for (const days of daysByMonth.values()) days.sort();
 
     return buildResult();
   }
 
   function buildResult() {
-    return { days: sortedDays, months: sortedMonths, years: sortedYears,
-             getFlowByDay, getFlowByMonth, getFlowByYear };
+    return {
+      days: sortedDays, months: sortedMonths, years: sortedYears,
+      getFlowByDay, getFlowByMonth, getFlowByYear, getFlowByHour,
+      getDaysOfMonth, HOUR_SLOTS
+    };
   }
 
-  function getFlowByDay(date)    { return dateIndex?.get(date) ?? null; }
-  function getFlowByMonth(month) { return monthIndex?.get(month) ?? null; }
-  function getFlowByYear(year)   { return yearIndex?.get(year) ?? null; }
+  function getFlowByDay(date)    { return dateIndex.get(date) ?? null; }
+  function getFlowByMonth(month) { return monthIndex.get(month) ?? null; }
+  function getFlowByYear(year)   { return yearIndex.get(year) ?? null; }
+  function getFlowByHour(date, slot) { return hourIndex.get(`${date}|${slot}`) ?? null; }
+  function getDaysOfMonth(month) { return daysByMonth.get(month) ?? []; }
 
-  return { load, getFlowByDay, getFlowByMonth, getFlowByYear };
+  return { load, getFlowByDay, getFlowByMonth, getFlowByYear, getFlowByHour, getDaysOfMonth, HOUR_SLOTS };
 })();

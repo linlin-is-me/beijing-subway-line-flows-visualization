@@ -1,36 +1,46 @@
 /**
- * Main controller: wires data loading, mode switching, classification,
- * rendering, and time-series playback animation.
+ * Main controller: 4 modes (year / month / day / hour) + playback.
+ *
+ * Playback scope:
+ *   年 — all years 2019-2025
+ *   月 — 12 months of the selected year
+ *   日 — all days of the selected month
+ *   时 — 5:00-23:00 of the selected day
  */
 (async function main() {
   // ── DOM refs ─────────────────────────────────────────────────────
-  const dayPicker    = document.getElementById('day-picker');
-  const monthPicker  = document.getElementById('month-picker');
-  const yearPicker   = document.getElementById('year-picker');
-  const modeBtns     = document.querySelectorAll('.mode-btn');
-  const svgContainer = document.getElementById('svg-container');
-  const legendCont   = document.getElementById('legend');
-  const loadingEl    = document.getElementById('loading');
-  const titleEl      = document.getElementById('selected-date-label');
+  const yearPicker  = document.getElementById('year-picker');
+  const monthPicker = document.getElementById('month-picker');
+  const dayPicker   = document.getElementById('day-picker');
+  const hourDisplay = document.getElementById('hour-display');
+  const modeBtns    = document.querySelectorAll('.mode-btn');
+  const svgContainer= document.getElementById('svg-container');
+  const legendCont  = document.getElementById('legend');
+  const loadingEl   = document.getElementById('loading');
+  const titleEl     = document.getElementById('selected-date-label');
 
   // Player
-  const btnPlay      = document.getElementById('btn-play');
-  const btnStepBack  = document.getElementById('btn-step-back');
-  const btnStepFwd   = document.getElementById('btn-step-fwd');
-  const speedSel     = document.getElementById('speed-select');
-  const progressFill = document.getElementById('progress-bar-fill');
-  const progressLbl  = document.getElementById('progress-label');
+  const btnPlay     = document.getElementById('btn-play');
+  const btnStepBack = document.getElementById('btn-step-back');
+  const btnStepFwd  = document.getElementById('btn-step-fwd');
+  const speedSel    = document.getElementById('speed-select');
+  const progressFill= document.getElementById('progress-bar-fill');
+  const progressLbl = document.getElementById('progress-label');
+  const progressBg  = document.getElementById('progress-bar-bg');
+  const thumb       = document.getElementById('progress-thumb');
 
-  let currentMode  = 'day';
+  let currentMode = 'day';
   let flowData;
   let svgRoot;
 
   // Player state
-  let playing      = false;
-  let playTimer    = null;
-  let rafId        = null;   // requestAnimationFrame id for render batching
-  let seqIndex     = 0;
-  let seqKeys      = [];
+  let playing   = false;
+  let playTimer = null;
+  let rafId     = null;
+  let seqIndex  = 0;
+  let seqKeys   = [];
+  let scrubbing = false;
+  let wasPlayingBeforeScrub = false;
 
   // ── Phase 1: Load data ──────────────────────────────────────────
   try {
@@ -48,18 +58,17 @@
   }
 
   // ── Phase 2: Init pickers ───────────────────────────────────────
+  yearPicker.innerHTML = flowData.years
+    .map(y => `<option value="${y}">${y} 年</option>`).join('');
+  yearPicker.value = flowData.years[flowData.years.length - 1];
+
+  monthPicker.min = flowData.months[0];
+  monthPicker.max = flowData.months[flowData.months.length - 1];
+  monthPicker.value = flowData.months[flowData.months.length - 1];
+
   dayPicker.min   = flowData.days[0];
   dayPicker.max   = flowData.days[flowData.days.length - 1];
   dayPicker.value = flowData.days[flowData.days.length - 1];
-
-  monthPicker.min   = flowData.months[0];
-  monthPicker.max   = flowData.months[flowData.months.length - 1];
-  monthPicker.value = flowData.months[flowData.months.length - 1];
-
-  yearPicker.innerHTML = flowData.years
-    .map(y => `<option value="${y}">${y} 年</option>`)
-    .join('');
-  yearPicker.value = flowData.years[flowData.years.length - 1];
 
   // ── Phase 3: Load SVG ───────────────────────────────────────────
   try {
@@ -75,10 +84,10 @@
     return;
   }
 
-  // ── Phase 4: Static legend + initial render ─────────────────────
+  // ── Phase 4: Initial render ─────────────────────────────────────
   renderLegend();
   loadingEl.style.display = 'none';
-  enablePickers(true);
+  switchPicker();
   rebuildSequence();
   updateVisualization();
 
@@ -94,14 +103,14 @@
     updateVisualization();
   }));
 
-  // ── Phase 6: Picker change ──────────────────────────────────────
-  dayPicker.addEventListener('change', onPickerChange);
-  monthPicker.addEventListener('change', onPickerChange);
+  // ── Phase 6: Picker changes ─────────────────────────────────────
   yearPicker.addEventListener('change', onPickerChange);
+  monthPicker.addEventListener('change', onPickerChange);
+  dayPicker.addEventListener('change', onPickerChange);
 
   function onPickerChange() {
     if (playing) return;
-    seqIndex = getCurrentIndex();
+    rebuildSequence();
     updateVisualization();
   }
 
@@ -110,44 +119,99 @@
   btnStepBack.addEventListener('click', () => { stopPlayback(); stepBack(); });
   btnStepFwd.addEventListener('click', () => { stopPlayback(); stepForward(); });
 
+  // ── Scrubber ────────────────────────────────────────────────────
+  function getScrubFraction(e) {
+    const rect = progressBg.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    return Math.max(0, Math.min(1, x / rect.width));
+  }
+  function scrubTo(fraction) {
+    const idx = Math.round(fraction * (seqKeys.length - 1));
+    if (idx === seqIndex) return;
+    seqIndex = idx;
+    applySeqIndex();
+    renderCurrentFrame();
+    updateProgressUI();
+  }
+  progressBg.addEventListener('mousedown', (e) => {
+    scrubbing = true;
+    wasPlayingBeforeScrub = playing;
+    if (playing) stopPlayback();
+    progressBg.classList.add('dragging');
+    scrubTo(getScrubFraction(e));
+  });
+  document.addEventListener('mousemove', (e) => {
+    if (!scrubbing) return;
+    scrubTo(getScrubFraction(e));
+  });
+  document.addEventListener('mouseup', () => {
+    if (!scrubbing) return;
+    scrubbing = false;
+    progressBg.classList.remove('dragging');
+    if (wasPlayingBeforeScrub) startPlayback();
+  });
+
   // ═══════════════════════════════════════════════════════════════════
-  //  PLAYER — decoupled scheduling + rendering for responsive clicks
+  //  MODE HELPERS
   // ═══════════════════════════════════════════════════════════════════
 
+  function switchPicker() {
+    yearPicker.style.display  = (currentMode === 'year' || currentMode === 'month') ? '' : 'none';
+    monthPicker.style.display = (currentMode === 'day')   ? '' : 'none';
+    dayPicker.style.display   = (currentMode === 'hour')  ? '' : 'none';
+    hourDisplay.style.display = (currentMode === 'hour')  ? '' : 'none';
+  }
+
   function getSequence() {
-    if (currentMode === 'day')   return flowData.days;
-    if (currentMode === 'month') return flowData.months;
-    return flowData.years;
+    if (currentMode === 'year') {
+      return flowData.years;
+    }
+    if (currentMode === 'month') {
+      const y = yearPicker.value || flowData.years[flowData.years.length - 1];
+      return flowData.months.filter(m => m.startsWith(y));
+    }
+    if (currentMode === 'day') {
+      const m = monthPicker.value;
+      if (!m) return [];
+      return flowData.getDaysOfMonth(m);
+    }
+    // hour
+    return DataLoader.HOUR_SLOTS;
   }
 
   function rebuildSequence() {
     seqKeys = getSequence();
-    seqIndex = getCurrentIndex();
+    seqIndex = currentMode === 'hour' ? 0 : Math.max(0, seqKeys.length - 1);
     updateProgressUI();
   }
 
-  function getCurrentIndex() {
-    const keys = getSequence();
-    const val = getPickerValue();
-    const idx = keys.indexOf(val);
-    return idx >= 0 ? idx : keys.length - 1;
+  function applySeqIndex() {
+    if (currentMode === 'year')       yearPicker.value = seqKeys[seqIndex];
+    else if (currentMode === 'month') monthPicker.value = seqKeys[seqIndex];
+    else if (currentMode === 'day')   dayPicker.value = seqKeys[seqIndex];
+    // hour: seqKeys are already hour slots, nothing to set in a picker
   }
 
-  function getPickerValue() {
-    if (currentMode === 'day')   return dayPicker.value;
-    if (currentMode === 'month') return monthPicker.value;
-    return yearPicker.value;
+  function getFlowForIndex() {
+    if (currentMode === 'year')       return flowData.getFlowByYear(seqKeys[seqIndex]);
+    if (currentMode === 'month')      return flowData.getFlowByMonth(seqKeys[seqIndex]);
+    if (currentMode === 'day')        return flowData.getFlowByDay(seqKeys[seqIndex]);
+    return flowData.getFlowByHour(dayPicker.value, seqKeys[seqIndex]);
   }
 
-  function setPickerValue(val) {
-    if (currentMode === 'day')   dayPicker.value = val;
-    else if (currentMode === 'month') monthPicker.value = val;
-    else yearPicker.value = val;
+  function getLabelForIndex() {
+    if (currentMode === 'year')       return `${seqKeys[seqIndex]} 年`;
+    if (currentMode === 'month')      return seqKeys[seqIndex];
+    if (currentMode === 'day')        return seqKeys[seqIndex];
+    return `${dayPicker.value}  ${seqKeys[seqIndex]}`;
   }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  PLAYER
+  // ═══════════════════════════════════════════════════════════════════
 
   function togglePlayback() {
     if (playing) { stopPlayback(); return; }
-    // Start
     playing = true;
     btnPlay.textContent = '⏸';
     btnPlay.classList.add('playing');
@@ -162,41 +226,28 @@
     btnPlay.textContent = '▶';
     btnPlay.classList.remove('playing');
     disableControlsDuringPlayback(false);
-    // Final ranking update (may have been skipped during playback)
     scheduleRankingUpdate();
   }
 
   function disableControlsDuringPlayback(lock) {
     modeBtns.forEach(b => b.disabled = lock);
-    dayPicker.disabled = lock || currentMode !== 'day';
-    monthPicker.disabled = lock || currentMode !== 'month';
-    yearPicker.disabled = lock || currentMode !== 'year';
+    yearPicker.disabled = lock;
+    monthPicker.disabled = lock;
+    dayPicker.disabled = lock;
   }
-
-  // ── Scheduling (timer → next frame render) ─────────────────
 
   function scheduleNextStep() {
     if (!playing) return;
-    if (seqIndex >= seqKeys.length - 1) {
-      stopPlayback();
-      return;
-    }
+    if (seqIndex >= seqKeys.length - 1) { stopPlayback(); return; }
 
     seqIndex++;
-    setPickerValue(seqKeys[seqIndex]);
+    applySeqIndex();
 
-    // Schedule the render on the next animation frame.
-    // If the user clicks pause before the frame fires, we cancel it.
     rafId = requestAnimationFrame(() => {
       rafId = null;
-      if (!playing) return;  // aborted by stopPlayback
-
+      if (!playing) return;
       renderCurrentFrame();
       updateProgressUI();
-
-      // Schedule next timer AFTER render completes.
-      // The timer fires even if render was slow — clicks between frames
-      // are handled by the browser's event loop between macro-tasks.
       const delay = parseInt(speedSel.value, 10);
       playTimer = setTimeout(scheduleNextStep, delay);
     });
@@ -205,7 +256,7 @@
   function stepForward() {
     if (seqIndex >= seqKeys.length - 1) return;
     seqIndex++;
-    setPickerValue(seqKeys[seqIndex]);
+    applySeqIndex();
     renderCurrentFrame();
     updateProgressUI();
   }
@@ -213,16 +264,16 @@
   function stepBack() {
     if (seqIndex <= 0) return;
     seqIndex--;
-    setPickerValue(seqKeys[seqIndex]);
+    applySeqIndex();
     renderCurrentFrame();
     updateProgressUI();
   }
 
-  // ── Lightweight render (only SVG + title + legend; ranking deferred) ─
+  // ── Render (light during playback, full when stopped) ────────────
 
   function renderCurrentFrame() {
-    const label = getCurrentLabel();
-    const lineFlows = getCurrentFlow();
+    const label = getLabelForIndex();
+    const lineFlows = getFlowForIndex();
     if (!lineFlows) {
       titleEl.textContent = `${label} — 无数据`;
       return;
@@ -236,7 +287,6 @@
 
     SvgRenderer.render(svgRoot, groupTierMap, glowSvgId);
 
-    // Pulse animation on top 3 lines
     const top3Ids = findTopNSvgGroups(lineFlows, 3);
     PulseAnimator.update(svgRoot, top3Ids);
 
@@ -244,7 +294,11 @@
 
     updateLegend(lineFlows, lineTiers);
 
-    // During playback, defer ranking rebuild. Too heavy per frame.
+    // Update the hour display in the picker area
+    if (currentMode === 'hour') {
+      hourDisplay.textContent = label;
+    }
+
     if (!playing) {
       updateRanking(lineFlows, lineTiers);
     }
@@ -256,7 +310,7 @@
     rankingPending = true;
     requestAnimationFrame(() => {
       rankingPending = false;
-      const lineFlows = getCurrentFlow();
+      const lineFlows = getFlowForIndex();
       if (lineFlows) {
         const lineTiers = classifyFlows(lineFlows);
         updateRanking(lineFlows, lineTiers);
@@ -264,49 +318,36 @@
     });
   }
 
-  // ── Progress ─────────────────────────────────────────────────────
-
   function updateProgressUI() {
     const total = seqKeys.length;
+    const pct = total ? ((seqIndex + 1) / total * 100) : 0;
     progressLbl.textContent = total ? `${seqIndex + 1} / ${total}` : '0 / 0';
-    progressFill.style.width = total ? `${((seqIndex + 1) / total * 100).toFixed(1)}%` : '0%';
+    progressFill.style.width = `${pct.toFixed(1)}%`;
+    thumb.style.left = `${pct.toFixed(1)}%`;
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  //  CORE RENDER (does full ranking — used on mode/picker change)
+  //  FULL RENDER (picker change)
   // ═══════════════════════════════════════════════════════════════════
-
-  function enablePickers(on) {
-    dayPicker.disabled = !on;
-    monthPicker.disabled = !on;
-    yearPicker.disabled = !on;
-  }
-
-  function switchPicker() {
-    dayPicker.style.display   = currentMode === 'day'   ? '' : 'none';
-    monthPicker.style.display = currentMode === 'month' ? '' : 'none';
-    yearPicker.style.display  = currentMode === 'year'  ? '' : 'none';
-  }
-
-  function getCurrentFlow() {
-    if (currentMode === 'day')   return flowData.getFlowByDay(dayPicker.value);
-    if (currentMode === 'month') return flowData.getFlowByMonth(monthPicker.value);
-    return flowData.getFlowByYear(yearPicker.value);
-  }
-
-  function getCurrentLabel() {
-    if (currentMode === 'day')   return dayPicker.value;
-    if (currentMode === 'month') return monthPicker.value;
-    return `${yearPicker.value} 年`;
-  }
 
   function updateVisualization() {
-    const lineFlows = getCurrentFlow();
+    // Set seqIndex to match current picker value
+    const pickerVal = currentMode === 'year' ? yearPicker.value
+                    : currentMode === 'month' ? monthPicker.value
+                    : currentMode === 'day' ? dayPicker.value
+                    : seqKeys[0]; // hour always starts at first slot
+    const idx = seqKeys.indexOf(pickerVal);
+    if (idx >= 0) seqIndex = idx;
+    updateProgressUI();
+
+    const lineFlows = getFlowForIndex();
     if (!lineFlows) return;
     renderCurrentFrame();
     const lineTiers = classifyFlows(lineFlows);
     updateRanking(lineFlows, lineTiers);
   }
+
+  // ── Legend ───────────────────────────────────────────────────────
 
   function renderLegend() {
     legendCont.innerHTML = '';
@@ -328,20 +369,15 @@
   function updateLegend(lineFlows, lineTiers) {
     const values = Object.values(lineFlows).filter(v => typeof v === 'number');
     const sorted = [...values].sort((a, b) => a - b);
-
-    const p20 = percentile(sorted, 20);
-    const p40 = percentile(sorted, 40);
-    const p60 = percentile(sorted, 60);
-    const p80 = percentile(sorted, 80);
-
+    const p20 = percentile(sorted, 20), p40 = percentile(sorted, 40);
+    const p60 = percentile(sorted, 60), p80 = percentile(sorted, 80);
     const thresholdLabels = [
-      `≤ ${p20.toFixed(1)} 万`,
-      `${p20.toFixed(1)} ~ ${p40.toFixed(1)} 万`,
-      `${p40.toFixed(1)} ~ ${p60.toFixed(1)} 万`,
-      `${p60.toFixed(1)} ~ ${p80.toFixed(1)} 万`,
-      `> ${p80.toFixed(1)} 万`
+      `≤ ${p20.toFixed(2)} 万`,
+      `${p20.toFixed(2)} ~ ${p40.toFixed(2)} 万`,
+      `${p40.toFixed(2)} ~ ${p60.toFixed(2)} 万`,
+      `${p60.toFixed(2)} ~ ${p80.toFixed(2)} 万`,
+      `> ${p80.toFixed(2)} 万`
     ];
-
     const items = legendCont.querySelectorAll('.legend-item');
     items.forEach((item, i) => {
       const tier = 5 - i;
@@ -360,14 +396,11 @@
   function updateRanking(lineFlows, lineTiers) {
     const container = document.getElementById('ranking-container');
     if (!container) return;
-
     const allValues = Object.values(lineFlows).filter(v => typeof v === 'number');
     const maxFlow = Math.max(...allValues, 1);
-
     const sorted = Object.entries(lineFlows)
       .map(([name, flow]) => ({ name, flow, tier: lineTiers[name] }))
       .sort((a, b) => b.flow - a.flow);
-
     container.innerHTML = sorted.map((entry, i) => {
       const barPct = (entry.flow / maxFlow * 100).toFixed(1);
       const tierColor = TIER_COLORS[entry.tier];
@@ -378,7 +411,7 @@
           <span class="rank-bar-wrap">
             <span class="rank-bar" style="width:${barPct}%;background:${tierColor}"></span>
           </span>
-          <span class="rank-flow">${entry.flow.toFixed(1)}<span class="rank-flow-unit"> 万</span></span>
+          <span class="rank-flow">${entry.flow.toFixed(2)}<span class="rank-flow-unit"> 万</span></span>
           <span class="rank-tier-dot" style="background:${tierColor}"></span>
         </div>`;
     }).join('');

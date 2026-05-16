@@ -15,14 +15,16 @@
 
   <div class="controls">
     <div class="mode-selector">
-      <button type="button" class="mode-btn active" data-mode="day">日</button>
-      <button type="button" class="mode-btn" data-mode="month">月</button>
       <button type="button" class="mode-btn" data-mode="year">年</button>
+      <button type="button" class="mode-btn" data-mode="month">月</button>
+      <button type="button" class="mode-btn active" data-mode="day">日</button>
+      <button type="button" class="mode-btn" data-mode="hour">时</button>
     </div>
     <div class="picker-wrap">
+      <select id="year-picker" style="display:none"></select>
+      <input type="month" id="month-picker" disabled>
       <input type="date" id="day-picker" disabled>
-      <input type="month" id="month-picker" disabled style="display:none">
-      <select id="year-picker" disabled style="display:none"></select>
+      <span id="hour-display" style="display:none"></span>
     </div>
   </div>
 
@@ -41,8 +43,9 @@
     </div>
     <div class="progress-wrap">
       <span id="progress-label">0 / 0</span>
-      <div class="progress-bar-bg">
+      <div class="progress-bar-bg" id="progress-bar-bg">
         <div id="progress-bar-fill" class="progress-bar-fill"></div>
+        <div id="progress-thumb" class="progress-thumb"></div>
       </div>
     </div>
   </div>
@@ -63,10 +66,10 @@
   </div>
 
   <div class="footer">
-    数据范围：2019-01-01 ~ 2025-12-31 | 客流量单位为万人·次
+    数据范围：2019-01-01 ~ 2025-12-31 | 时模式为 5:00-23:00 | 客流量单位为万人·次
   </div>
 
-  <!-- Scripts (order matters: dependencies first) -->
+  <!-- Scripts -->
   <script src="js/lineMapping.js"></script>
   <script src="js/flowClassifier.js"></script>
   <script src="js/dataLoader.js"></script>

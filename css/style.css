@@ -98,6 +98,13 @@ body {
   border-color: #3498db;
 }
 
+.picker-wrap #hour-display {
+  font-size: 14px;
+  color: #3498db;
+  font-weight: 600;
+  padding: 6px 0;
+}
+
 .picker-wrap input:disabled,
 .picker-wrap select:disabled {
   opacity: 0.4;
@@ -367,19 +374,48 @@ body {
 
 .progress-bar-bg {
   flex: 1;
-  height: 6px;
+  height: 8px;
   background: #0f0f23;
-  border-radius: 3px;
-  overflow: hidden;
+  border-radius: 4px;
   min-width: 100px;
+  position: relative;
+  cursor: pointer;
+}
+
+.progress-bar-bg:hover {
+  background: #1a1a3a;
 }
 
 .progress-bar-fill {
   height: 100%;
   background: #3498db;
-  border-radius: 3px;
-  transition: width 0.1s linear;
+  border-radius: 4px;
   width: 0%;
+  pointer-events: none;
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.progress-thumb {
+  position: absolute;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  background: #3498db;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  box-shadow: 0 0 6px rgba(52, 152, 219, 0.6);
+  left: 100%;
+  transition: left 0.05s linear;
+}
+
+.progress-bar-bg.dragging .progress-thumb {
+  width: 20px;
+  height: 20px;
+  box-shadow: 0 0 12px rgba(52, 152, 219, 0.9);
 }
 
 /* ── Footer ────────────────────────────────────────── */
