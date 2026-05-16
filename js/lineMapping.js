@@ -88,3 +88,27 @@ function findTopSvgGroup(lineFlowMap) {
 
   return topSvgId;
 }
+
+/**
+ * Find the top N SVG group IDs by passenger flow.
+ */
+function findTopNSvgGroups(lineFlowMap, n = 3) {
+  const groupFlows = [];
+  const processed = new Set();
+
+  for (const [lineName, config] of Object.entries(LINE_MAPPING)) {
+    if (processed.has(config.svgId)) continue;
+    processed.add(config.svgId);
+
+    let flow = lineFlowMap[lineName] ?? 0;
+    if (config.combined) {
+      const partnerFlow = lineFlowMap[config.partner] ?? 0;
+      flow = Math.max(flow, partnerFlow);
+    }
+
+    groupFlows.push({ svgId: config.svgId, flow });
+  }
+
+  groupFlows.sort((a, b) => b.flow - a.flow);
+  return groupFlows.slice(0, n).map(g => g.svgId);
+}

@@ -28,8 +28,9 @@
   // Player state
   let playing      = false;
   let playTimer    = null;
-  let seqIndex     = 0;       // current position in the current-mode sequence
-  let seqKeys      = [];      // e.g. ['2019-01', '2019-02', ...] or ['2019', ...]
+  let rafId        = null;   // requestAnimationFrame id for render batching
+  let seqIndex     = 0;
+  let seqKeys      = [];
 
   // ── Phase 1: Load data ──────────────────────────────────────────
   try {
@@ -99,25 +100,19 @@
   yearPicker.addEventListener('change', onPickerChange);
 
   function onPickerChange() {
-    if (playing) return; // ignore during playback
+    if (playing) return;
     seqIndex = getCurrentIndex();
     updateVisualization();
   }
 
   // ── Phase 7: Player buttons ─────────────────────────────────────
-  btnPlay.addEventListener('click', () => {
-    if (playing) { stopPlayback(); } else { startPlayback(); }
-  });
+  btnPlay.addEventListener('click', togglePlayback);
   btnStepBack.addEventListener('click', () => { stopPlayback(); stepBack(); });
   btnStepFwd.addEventListener('click', () => { stopPlayback(); stepForward(); });
-  speedSel.addEventListener('change', () => {
-    if (playing) { stopPlayback(); startPlayback(); }
-  });
-  updatePlayerButtons();
 
-  // ═══════════════════════════════════════════════════════════════
-  //  PLAYER
-  // ═══════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════
+  //  PLAYER — decoupled scheduling + rendering for responsive clicks
+  // ═══════════════════════════════════════════════════════════════════
 
   function getSequence() {
     if (currentMode === 'day')   return flowData.days;
@@ -150,21 +145,25 @@
     else yearPicker.value = val;
   }
 
-  function startPlayback() {
-    if (playing) return;
+  function togglePlayback() {
+    if (playing) { stopPlayback(); return; }
+    // Start
     playing = true;
     btnPlay.textContent = '⏸';
     btnPlay.classList.add('playing');
     disableControlsDuringPlayback(true);
-    advancePlayback();
+    scheduleNextStep();
   }
 
   function stopPlayback() {
     playing = false;
     if (playTimer) { clearTimeout(playTimer); playTimer = null; }
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
     btnPlay.textContent = '▶';
     btnPlay.classList.remove('playing');
     disableControlsDuringPlayback(false);
+    // Final ranking update (may have been skipped during playback)
+    scheduleRankingUpdate();
   }
 
   function disableControlsDuringPlayback(lock) {
@@ -174,27 +173,40 @@
     yearPicker.disabled = lock || currentMode !== 'year';
   }
 
-  function advancePlayback() {
+  // ── Scheduling (timer → next frame render) ─────────────────
+
+  function scheduleNextStep() {
     if (!playing) return;
     if (seqIndex >= seqKeys.length - 1) {
-      // Reached end — pause
       stopPlayback();
       return;
     }
+
     seqIndex++;
     setPickerValue(seqKeys[seqIndex]);
-    updateVisualization();
-    updateProgressUI();
 
-    const delay = parseInt(speedSel.value, 10);
-    playTimer = setTimeout(advancePlayback, delay);
+    // Schedule the render on the next animation frame.
+    // If the user clicks pause before the frame fires, we cancel it.
+    rafId = requestAnimationFrame(() => {
+      rafId = null;
+      if (!playing) return;  // aborted by stopPlayback
+
+      renderCurrentFrame();
+      updateProgressUI();
+
+      // Schedule next timer AFTER render completes.
+      // The timer fires even if render was slow — clicks between frames
+      // are handled by the browser's event loop between macro-tasks.
+      const delay = parseInt(speedSel.value, 10);
+      playTimer = setTimeout(scheduleNextStep, delay);
+    });
   }
 
   function stepForward() {
     if (seqIndex >= seqKeys.length - 1) return;
     seqIndex++;
     setPickerValue(seqKeys[seqIndex]);
-    updateVisualization();
+    renderCurrentFrame();
     updateProgressUI();
   }
 
@@ -202,9 +214,57 @@
     if (seqIndex <= 0) return;
     seqIndex--;
     setPickerValue(seqKeys[seqIndex]);
-    updateVisualization();
+    renderCurrentFrame();
     updateProgressUI();
   }
+
+  // ── Lightweight render (only SVG + title + legend; ranking deferred) ─
+
+  function renderCurrentFrame() {
+    const label = getCurrentLabel();
+    const lineFlows = getCurrentFlow();
+    if (!lineFlows) {
+      titleEl.textContent = `${label} — 无数据`;
+      return;
+    }
+
+    SvgRenderer.resetAll(svgRoot);
+
+    const lineTiers    = classifyFlows(lineFlows);
+    const groupTierMap = buildSvgGroupTierMap(lineTiers);
+    const glowSvgId    = findTopSvgGroup(lineFlows);
+
+    SvgRenderer.render(svgRoot, groupTierMap, glowSvgId);
+
+    // Pulse animation on top 3 lines
+    const top3Ids = findTopNSvgGroups(lineFlows, 3);
+    PulseAnimator.update(svgRoot, top3Ids);
+
+    titleEl.textContent = `${label} 客流量分布`;
+
+    updateLegend(lineFlows, lineTiers);
+
+    // During playback, defer ranking rebuild. Too heavy per frame.
+    if (!playing) {
+      updateRanking(lineFlows, lineTiers);
+    }
+  }
+
+  let rankingPending = false;
+  function scheduleRankingUpdate() {
+    if (rankingPending) return;
+    rankingPending = true;
+    requestAnimationFrame(() => {
+      rankingPending = false;
+      const lineFlows = getCurrentFlow();
+      if (lineFlows) {
+        const lineTiers = classifyFlows(lineFlows);
+        updateRanking(lineFlows, lineTiers);
+      }
+    });
+  }
+
+  // ── Progress ─────────────────────────────────────────────────────
 
   function updateProgressUI() {
     const total = seqKeys.length;
@@ -212,15 +272,9 @@
     progressFill.style.width = total ? `${((seqIndex + 1) / total * 100).toFixed(1)}%` : '0%';
   }
 
-  function updatePlayerButtons() {
-    btnStepBack.disabled = false;
-    btnStepFwd.disabled = false;
-    btnPlay.disabled = false;
-  }
-
-  // ═══════════════════════════════════════════════════════════════
-  //  CORE LOGIC
-  // ═══════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════
+  //  CORE RENDER (does full ranking — used on mode/picker change)
+  // ═══════════════════════════════════════════════════════════════════
 
   function enablePickers(on) {
     dayPicker.disabled = !on;
@@ -247,24 +301,10 @@
   }
 
   function updateVisualization() {
-    const label = getCurrentLabel();
     const lineFlows = getCurrentFlow();
-    if (!lineFlows) {
-      titleEl.textContent = `${label} — 无数据`;
-      return;
-    }
-
-    SvgRenderer.resetAll(svgRoot);
-
-    const lineTiers    = classifyFlows(lineFlows);
-    const groupTierMap = buildSvgGroupTierMap(lineTiers);
-    const glowSvgId    = findTopSvgGroup(lineFlows);
-
-    SvgRenderer.render(svgRoot, groupTierMap, glowSvgId);
-
-    titleEl.textContent = `${label} 客流量分布`;
-
-    updateLegend(lineFlows, lineTiers);
+    if (!lineFlows) return;
+    renderCurrentFrame();
+    const lineTiers = classifyFlows(lineFlows);
     updateRanking(lineFlows, lineTiers);
   }
 
