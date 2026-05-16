@@ -90,9 +90,9 @@ const PulseAnimator = (() => {
         for (let i = 0; i < DOT_COUNT; i++) {
           const pos   = i / DOT_COUNT;
           const speed = MIN_SPEED + Math.random() * (MAX_SPEED - MIN_SPEED);
-          const el    = createDot(shape, lineColor, DOT_R);
-          const tailEl = createDot(shape, lineColor, TAIL_R, 0.35);
-          dots.push({ el, tailEl, pathEl: shape, pos, speed, length: len, color: lineColor });
+          const el    = createDot(shape, lineColor, DOT_R, svgId, group);
+          const tailEl = createDot(shape, lineColor, TAIL_R, svgId, group, 0.35);
+          dots.push({ el, tailEl, pathEl: shape, pos, speed, length: len, color: lineColor, svgId });
         }
       }
     }
@@ -153,20 +153,22 @@ const PulseAnimator = (() => {
     return { x: 0, y: 0 };
   }
 
-  function createDot(shape, color, r, opacity = 0.9) {
+  function createDot(shape, color, r, svgId, parentGroup, opacity = 0.9) {
     const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     circle.setAttribute('r', r);
     circle.setAttribute('fill', color);
     circle.setAttribute('opacity', opacity);
     circle.setAttribute('filter', 'url(#metro-glow)');
     circle.setAttribute('pointer-events', 'none');
+    circle.setAttribute('class', 'pulse-dot');
+    circle.setAttribute('data-svg-id', svgId);
 
     // Position at start of path
     const pt = getPointAt(shape, 0);
     circle.setAttribute('cx', pt.x);
     circle.setAttribute('cy', pt.y);
 
-    svgRoot.appendChild(circle);
+    parentGroup.appendChild(circle);
     return circle;
   }
 

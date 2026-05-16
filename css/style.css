@@ -234,6 +234,18 @@ body {
   background: #1f3058;
 }
 
+.ranking-row.hl {
+  background: #1a3a5c;
+  box-shadow: inset 3px 0 0 #3498db, 0 0 10px rgba(52, 152, 219, 0.25);
+}
+
+/* ── Map dimming (brushing & linking) ─────────────── */
+
+#svg-container g.dimmed {
+  opacity: 0.1;
+  transition: opacity 0.25s ease;
+}
+
 .rank-num {
   width: 24px;
   text-align: right;

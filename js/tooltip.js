@@ -109,7 +109,7 @@ const TooltipManager = (() => {
 
     // Event delegation — listeners live on the SVG root
     svgRoot.addEventListener('mouseover', (e) => {
-      const group = e.target.closest('g[id]');
+      const group = e.target.closest('[id]');
       if (!group) { hide(); return; }
       const id = group.getAttribute('id');
       if (!svgToLines[id]) { hide(); return; }
@@ -124,7 +124,7 @@ const TooltipManager = (() => {
 
     svgRoot.addEventListener('mouseout', (e) => {
       const rel = e.relatedTarget;
-      const relGroup = rel && rel.closest ? rel.closest('g[id]') : null;
+      const relGroup = rel && rel.closest ? rel.closest('[id]') : null;
       const relId = relGroup ? relGroup.getAttribute('id') : null;
       if (relId === hoveredSvgId) return; // still inside same group
       hide();

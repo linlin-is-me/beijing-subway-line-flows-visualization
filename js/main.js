@@ -16,6 +16,7 @@
   const modeBtns    = document.querySelectorAll('.mode-btn');
   const svgContainer= document.getElementById('svg-container');
   const legendCont  = document.getElementById('legend');
+  const rankingCont = document.getElementById('ranking-container');
   const loadingEl   = document.getElementById('loading');
   const titleEl     = document.getElementById('selected-date-label');
 
@@ -85,6 +86,7 @@
   }
 
   TooltipManager.init(svgRoot);
+  BrushingLinking.init(svgRoot, rankingCont);
 
   // ── Phase 4: Initial render ─────────────────────────────────────
   renderLegend();
@@ -421,18 +423,17 @@
   }
 
   function updateRanking(lineFlows, lineTiers) {
-    const container = document.getElementById('ranking-container');
-    if (!container) return;
+    if (!rankingCont) return;
     const allValues = Object.values(lineFlows).filter(v => typeof v === 'number');
     const maxFlow = Math.max(...allValues, 1);
     const sorted = Object.entries(lineFlows)
       .map(([name, flow]) => ({ name, flow, tier: lineTiers[name] }))
       .sort((a, b) => b.flow - a.flow);
-    container.innerHTML = sorted.map((entry, i) => {
+    rankingCont.innerHTML = sorted.map((entry, i) => {
       const barPct = (entry.flow / maxFlow * 100).toFixed(1);
       const tierColor = TIER_COLORS[entry.tier];
       return `
-        <div class="ranking-row">
+        <div class="ranking-row" data-line-name="${entry.name}">
           <span class="rank-num">${i + 1}</span>
           <span class="rank-line-name">${entry.name}</span>
           <span class="rank-bar-wrap">
