@@ -300,9 +300,9 @@
     SvgRenderer.resetAll(svgRoot);
     const lineTiers = classifyFlows(lineFlows);
     const glowSvgId = findTopSvgGroup(lineFlows);
-    SvgRenderer.render(svgRoot, buildSvgGroupTierMap(lineTiers), glowSvgId);
-    PulseAnimator.update(svgRoot, findTopNSvgGroups(lineFlows, 3));
-
+    const groupTierMap = buildSvgGroupTierMap(lineTiers);
+    if (glowSvgId) groupTierMap[glowSvgId] = 6;
+    SvgRenderer.render(svgRoot, groupTierMap, glowSvgId);
     // Direction data (shared by ranking)
     const dirs = computeDirections();
 
@@ -367,7 +367,7 @@
 
   function renderLegend() {
     legendCont.innerHTML = '';
-    for (let tier = 5; tier >= 1; tier--) {
+    for (let tier = 6; tier >= 1; tier--) {
       const div = document.createElement('div');
       div.className = 'legend-item';
       div.innerHTML = `<span class="legend-line" style="--legend-width:${STROKE_WIDTH_MAP[tier]}px;--legend-color:${TIER_COLORS[tier]};"></span>
@@ -380,13 +380,14 @@
     const values = Object.values(lineFlows).filter(v => typeof v === 'number');
     const s = [...values].sort((a, b) => a - b);
     const [p20, p40, p60, p80] = [20, 40, 60, 80].map(p => percentile(s, p));
-    const labels = [`≤ ${p20.toFixed(2)} 万`, `${p20.toFixed(2)} ~ ${p40.toFixed(2)} 万`,
-      `${p40.toFixed(2)} ~ ${p60.toFixed(2)} 万`, `${p60.toFixed(2)} ~ ${p80.toFixed(2)} 万`, `> ${p80.toFixed(2)} 万`];
+    const labels = [`> ${p80.toFixed(2)} 万`, `${p60.toFixed(2)} ~ ${p80.toFixed(2)} 万`,
+      `${p40.toFixed(2)} ~ ${p60.toFixed(2)} 万`, `${p20.toFixed(2)} ~ ${p40.toFixed(2)} 万`, `≤ ${p20.toFixed(2)} 万`];
     legendCont.querySelectorAll('.legend-item').forEach((item, i) => {
       const lbl = item.querySelector('.legend-label');
       const old = item.querySelector('.legend-threshold');
       if (old) old.remove();
-      if (lbl) { const sp = document.createElement('span'); sp.className = 'legend-threshold'; sp.textContent = labels[4 - i]; lbl.after(sp); }
+      if (i === 0) return; // tier 6 (最高) — no threshold
+      if (lbl) { const sp = document.createElement('span'); sp.className = 'legend-threshold'; sp.textContent = labels[i - 1]; lbl.after(sp); }
     });
   }
 

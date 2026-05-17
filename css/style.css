@@ -258,6 +258,10 @@ body {
   display: block;
 }
 
+#svg-container svg text {
+  font-size: 16px !important;
+}
+
 /* ── Legend ────────────────────────────────────────── */
 
 .legend-panel {
@@ -271,7 +275,7 @@ body {
 
 #legend {
   display: flex;
-  gap: 18px;
+  gap: 32px;
   flex-wrap: wrap;
   justify-content: center;
 }
@@ -279,14 +283,14 @@ body {
 .legend-item {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
   font-size: 13px;
   color: #ccc;
 }
 
 .legend-line {
   display: inline-block;
-  width: 40px;
+  width: 48px;
   height: var(--legend-width);
   background: var(--legend-color);
   border-radius: 2px;
@@ -294,7 +298,7 @@ body {
 }
 
 .legend-label {
-  min-width: 28px;
+  min-width: 32px;
 }
 
 .legend-width {
@@ -305,7 +309,7 @@ body {
 .legend-threshold {
   color: #999;
   font-size: 11px;
-  margin-left: 2px;
+  margin-left: 4px;
 }
 
 /* ── Ranking List ───────────────────────────────────── */
@@ -328,14 +332,14 @@ body {
 #ranking-container {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
 }
 
 .ranking-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 6px 14px;
+  gap: 14px;
+  padding: 9px 16px;
   border-radius: 6px;
   background: #16213e;
   transition: background 0.15s;
