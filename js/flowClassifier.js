@@ -6,11 +6,11 @@
  */
 
 const STROKE_WIDTH_MAP = {
-  1: 0.6,  // 很低 — barely visible
-  2: 2.5,  // 较低
-  3: 5.5,  // 中等
-  4: 11,   // 较高
-  5: 20    // 很高 — dominant
+  1: 0.5,  // 很低
+  2: 2,    // 较低
+  3: 5,    // 中等
+  4: 13,   // 较高
+  5: 26    // 很高
 };
 
 const TIER_LABELS = {

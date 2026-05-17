@@ -80,6 +80,7 @@
   TooltipManager.init(svgRoot);
   BrushingLinking.init(svgRoot, rankingCont);
   TidalChart.init(document.getElementById('tidal-canvas'));
+  TransferStations.init(svgRoot);
 
   // ── Phase 4: Initial render ─────────────────────────────────────
   renderLegend();
@@ -298,8 +299,12 @@
 
     SvgRenderer.resetAll(svgRoot);
     const lineTiers = classifyFlows(lineFlows);
-    SvgRenderer.render(svgRoot, buildSvgGroupTierMap(lineTiers), findTopSvgGroup(lineFlows));
+    const glowSvgId = findTopSvgGroup(lineFlows);
+    SvgRenderer.render(svgRoot, buildSvgGroupTierMap(lineTiers), glowSvgId);
     PulseAnimator.update(svgRoot, findTopNSvgGroups(lineFlows, 3));
+
+    // Direction data (shared by ranking)
+    const dirs = computeDirections();
 
     titleEl.textContent = `${label} 客流量分布`;
     updateSceneTags();
@@ -316,7 +321,6 @@
     }
 
     if (!playing) {
-      const dirs = computeDirections();
       updateRanking(lineFlows, lineTiers, dirs);
     }
   }

@@ -199,6 +199,42 @@ body {
 .rank-direction.out { color: #e67e22; }
 .rank-direction.bal { color: #888; }
 
+/* ── Transfer station tooltip ─────────────────────── */
+
+.transfer-tooltip {
+  display: none;
+  position: fixed;
+  background: #16213e;
+  border: 1px solid #3498db;
+  border-radius: 8px;
+  padding: 8px 12px;
+  pointer-events: none;
+  z-index: 999;
+  font-size: 12px;
+}
+
+.tt-title {
+  color: #3498db;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.tt-line {
+  display: inline-block;
+  background: #1f3058;
+  color: #ccc;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin: 1px 3px 1px 0;
+  font-size: 11px;
+}
+
+/* ── Flow arrows (on top-flow line) ───────────────── */
+
+.flow-arrow {
+  filter: drop-shadow(0 0 3px rgba(52,152,219,0.8));
+}
+
 /* ── SVG Container ─────────────────────────────────── */
 
 .svg-wrapper {

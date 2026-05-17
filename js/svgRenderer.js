@@ -22,10 +22,12 @@ const SvgRenderer = (() => {
 
     const filter = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
     filter.setAttribute('id', GLOW_FILTER_ID);
-    filter.setAttribute('x', '-40%');
-    filter.setAttribute('y', '-40%');
-    filter.setAttribute('width', '180%');
-    filter.setAttribute('height', '180%');
+    // Use userSpaceOnUse with entire viewBox to avoid clipping on large elements (e.g. L10 loop)
+    filter.setAttribute('filterUnits', 'userSpaceOnUse');
+    filter.setAttribute('x', '0');
+    filter.setAttribute('y', '0');
+    filter.setAttribute('width', '2440');
+    filter.setAttribute('height', '2440');
 
     // Outer glow — thicker, more transparent
     filter.innerHTML = `
