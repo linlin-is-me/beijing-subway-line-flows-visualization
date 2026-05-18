@@ -220,6 +220,7 @@ body {
 /* Direction tag in ranking rows */
 .rank-direction {
   width: 64px;
+  min-width: 64px;
   font-size: 11px;
   text-align: center;
   flex-shrink: 0;
@@ -288,6 +289,12 @@ body {
   background: #0f0f23;
   border-radius: 4px;
   padding: 2px 6px 4px;
+  border: 1px solid transparent;
+}
+
+.sm-cell.sm-extreme {
+  border-color: rgba(231,76,60,0.5);
+  background: rgba(231,76,60,0.08);
 }
 
 .sm-label {
@@ -608,10 +615,32 @@ body {
 }
 
 .rank-line-name {
-  flex: 1;
+  width: 130px;
+  flex-shrink: 0;
   font-size: 14px;
   color: #ddd;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tag-extreme-tidal {
+  display: inline-block;
+  min-width: 64px;
+  font-size: 10px;
+  color: #e74c3c;
+  background: rgba(231,76,60,0.15);
+  border: 1px solid rgba(231,76,60,0.4);
+  border-radius: 4px;
+  padding: 1px 5px;
+  flex-shrink: 0;
+  font-weight: 600;
+  text-align: center;
+  box-sizing: border-box;
+}
+.tag-extreme-tidal:empty {
+  background: none;
+  border: none;
 }
 
 .rank-bar-wrap {

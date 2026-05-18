@@ -19,7 +19,7 @@ const SmallMultiples = (() => {
   function show()  { visible = true;  container.style.display = 'grid'; }
   function hide()  { visible = false; container.style.display = 'none'; }
 
-  function render(date, lineNames, getInOutFn) {
+  function render(date, lineNames, getInOutFn, tiiData) {
     if (!date || !lineNames.length) return;
     if (container.style.display === 'none') return;
     container.innerHTML = '';
@@ -27,6 +27,7 @@ const SmallMultiples = (() => {
     for (const ln of lineNames) {
       const wrapper = document.createElement('div');
       wrapper.className = 'sm-cell';
+      if (tiiData && tiiData[ln] && tiiData[ln].extreme) wrapper.classList.add('sm-extreme');
 
       const label = document.createElement('span');
       label.className = 'sm-label';

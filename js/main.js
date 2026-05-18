@@ -142,6 +142,13 @@
     return dirs;
   }
 
+  function computeTII() {
+    const date=getCurrentDate();if(!date)return null;const data=flowData.getInOutByHour(date,'7:00-8:00');if(!data)return null;
+    const tiiData={};
+    for(const[line,v]of Object.entries(data)){const mn=Math.max(Math.min(v.inbound,v.outbound),0.01);tiiData[line]={tii:Math.max(v.inbound,v.outbound)/mn,extreme:Math.max(v.inbound,v.outbound)/mn>3.0};}
+    return tiiData;
+  }
+
   function togglePlayback() { if(playing){stopPlayback();return;} playing=true;btnPlay.textContent='⏸';btnPlay.classList.add('playing');disableControlsDuringPlayback(true);scheduleNextStep(); }
   function stopPlayback() { playing=false;if(playTimer){clearTimeout(playTimer);playTimer=null;}if(rafId){cancelAnimationFrame(rafId);rafId=null;}btnPlay.textContent='▶';btnPlay.classList.remove('playing');disableControlsDuringPlayback(false);scheduleRankingUpdate(); }
   function disableControlsDuringPlayback(l){modeBtns.forEach(b=>b.disabled=l);yearPicker.disabled=l;monthPicker.disabled=l;dayPicker.disabled=l;}
@@ -157,21 +164,21 @@
     titleEl.textContent=`${label} 客流量分布`;updateSceneTags();updateLegend(lineFlows,lineTiers);
     if(currentMode==='hour')hourDisplay.textContent=label;
     if(currentMode==='hour'){if(!tidalLine)tidalLine=Object.keys(lineFlows)[0];tidalName.textContent=tidalLine;TidalChart.render(dayPicker.value,tidalLine,DataLoader.HOUR_SLOTS,(date,slot)=>flowData.getInOutByHour(date,slot));}
-    if(!playing){updateRanking(lineFlows,lineTiers,dirs,buildSparkData(getCurrentDate()));}
+    if(!playing){updateRanking(lineFlows,lineTiers,dirs,buildSparkData(getCurrentDate()),computeTII());}
     if(viewActive.sm)renderSmallMultiples();
   }
 
   let rankingPending=false;
-  function scheduleRankingUpdate(){if(rankingPending)return;rankingPending=true;requestAnimationFrame(()=>{rankingPending=false;const lf=getFlowForIndex();if(lf)updateRanking(lf,classifyFlows(lf),computeDirections(),buildSparkData(getCurrentDate()));});}
+  function scheduleRankingUpdate(){if(rankingPending)return;rankingPending=true;requestAnimationFrame(()=>{rankingPending=false;const lf=getFlowForIndex();if(lf)updateRanking(lf,classifyFlows(lf),computeDirections(),buildSparkData(getCurrentDate()),computeTII());});}
   function updateProgressUI(){const t=seqKeys.length;const pct=t>0?Math.max(0,Math.min(100,(seqIndex+1)/t*100)):0;progressLbl.textContent=t>0?`${Math.max(1,seqIndex+1)}/${t}`:'0/0';progressFill.style.width=`${pct.toFixed(1)}%`;thumb.style.left=`${pct.toFixed(1)}%`;}
 
-  function updateVisualization(){const pv=currentMode==='year'?yearPicker.value:currentMode==='month'?monthPicker.value:currentMode==='day'?dayPicker.value:seqKeys[0];const idx=seqKeys.indexOf(pv);if(idx>=0)seqIndex=idx;updateProgressUI();const lf=getFlowForIndex();if(!lf)return;renderCurrentFrame();updateRanking(lf,classifyFlows(lf),computeDirections(),buildSparkData(getCurrentDate()));}
+  function updateVisualization(){const pv=currentMode==='year'?yearPicker.value:currentMode==='month'?monthPicker.value:currentMode==='day'?dayPicker.value:seqKeys[0];const idx=seqKeys.indexOf(pv);if(idx>=0)seqIndex=idx;updateProgressUI();const lf=getFlowForIndex();if(!lf)return;renderCurrentFrame();updateRanking(lf,classifyFlows(lf),computeDirections(),buildSparkData(getCurrentDate()),computeTII());}
 
   function renderLegend(){legendCont.innerHTML='';for(let t=6;t>=1;t--){const d=document.createElement('div');d.className='legend-item';d.innerHTML=`<span class="legend-line" style="--legend-width:${STROKE_WIDTH_MAP[t]}px;--legend-color:${TIER_COLORS[t]};"></span><span class="legend-label">${TIER_LABELS[t]}</span><span class="legend-width">${STROKE_WIDTH_MAP[t]}px</span>`;legendCont.appendChild(d);}}
   function updateLegend(lf,lt){const v=Object.values(lf).filter(x=>typeof x==='number');const s=[...v].sort((a,b)=>a-b);const[p20,p40,p60,p80]=[20,40,60,80].map(p=>percentile(s,p));const labels=[`> ${p80.toFixed(2)} 万`,`${p60.toFixed(2)} ~ ${p80.toFixed(2)} 万`,`${p40.toFixed(2)} ~ ${p60.toFixed(2)} 万`,`${p20.toFixed(2)} ~ ${p40.toFixed(2)} 万`,`≤ ${p20.toFixed(2)} 万`];legendCont.querySelectorAll('.legend-item').forEach((item,i)=>{const lbl=item.querySelector('.legend-label');const old=item.querySelector('.legend-threshold');if(old)old.remove();if(i===0)return;if(lbl){const sp=document.createElement('span');sp.className='legend-threshold';sp.textContent=labels[i-1];lbl.after(sp);}});}
 
-  function updateRanking(lineFlows,lineTiers,dirs,sparkData){if(!rankingCont)return;const av=Object.values(lineFlows).filter(v=>typeof v==='number');const maxF=Math.max(...av,1);const s=Object.entries(lineFlows).map(([n,f])=>({name:n,flow:f,tier:lineTiers[n],dir:dirs?dirs[n]:null})).sort((a,b)=>b.flow-a.flow);
-  rankingCont.innerHTML=s.map((e,i)=>{const bp=(e.flow/maxF*100).toFixed(1);const tc=TIER_COLORS[e.tier];const dh=e.dir?`<span class="rank-direction ${e.dir.cls}">${e.dir.label}</span>`:'';const sp=sparkData?'<canvas class="rank-spark" width="80" height="20"></canvas>':'';return`<div class="ranking-row" data-line-name="${e.name}"><span class="rank-num">${i+1}</span><span class="rank-line-name">${e.name}</span><span class="rank-bar-wrap"><span class="rank-bar" style="width:${bp}%;background:${tc}"></span></span><span class="rank-flow">${e.flow.toFixed(2)}<span class="rank-flow-unit"> 万</span></span><span class="rank-tier-dot" style="background:${tc}"></span>${dh}${sp}</div>`;}).join('');
+  function updateRanking(lineFlows,lineTiers,dirs,sparkData,tiiData){if(!rankingCont)return;const av=Object.values(lineFlows).filter(v=>typeof v==='number');const maxF=Math.max(...av,1);const s=Object.entries(lineFlows).map(([n,f])=>({name:n,flow:f,tier:lineTiers[n],dir:dirs?dirs[n]:null,tii:tiiData?tiiData[n]:null})).sort((a,b)=>b.flow-a.flow);
+  rankingCont.innerHTML=s.map((e,i)=>{const bp=(e.flow/maxF*100).toFixed(1);const tc=TIER_COLORS[e.tier];const dh=e.dir?`<span class="rank-direction ${e.dir.cls}">${e.dir.label}</span>`:'<span class="rank-direction"></span>';const sp=sparkData?'<canvas class="rank-spark" width="80" height="20"></canvas>':'<span class="rank-spark"></span>';const tiiTag=(e.tii&&e.tii.extreme)?'<span class="tag-extreme-tidal">极端潮汐</span>':'<span class="tag-extreme-tidal"></span>';return`<div class="ranking-row" data-line-name="${e.name}"><span class="rank-num">${i+1}</span><span class="rank-line-name">${e.name}</span><span class="rank-bar-wrap"><span class="rank-bar" style="width:${bp}%;background:${tc}"></span></span><span class="rank-flow">${e.flow.toFixed(2)}<span class="rank-flow-unit"> 万</span></span><span class="rank-tier-dot" style="background:${tc}"></span>${dh}${sp}${tiiTag}</div>`;}).join('');
   if(sparkData){rankingCont.querySelectorAll('.ranking-row').forEach(row=>{const ln=row.dataset.lineName;const c=row.querySelector('.rank-spark');if(!c||!sparkData[ln])return;drawSparkline(c,sparkData[ln],TIER_COLORS[lineTiers[ln]]||'#888');});}
   rankingCont.querySelectorAll('.ranking-row').forEach(row=>{row.addEventListener('click',()=>{const ln=row.dataset.lineName;if(!ln)return;tidalLine=ln;tidalName.textContent=ln;if(currentMode==='hour')TidalChart.render(dayPicker.value,tidalLine,DataLoader.HOUR_SLOTS,(d,sl)=>flowData.getInOutByHour(d,sl));});});}
 
@@ -181,6 +188,6 @@
   function drawSparkline(canvas,data,color){const dpr=window.devicePixelRatio||1;const W=canvas.clientWidth,H=canvas.clientHeight;canvas.width=W*dpr;canvas.height=H*dpr;const ctx=canvas.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);const pts=data.filter(p=>p!==null&&p!==undefined);if(pts.length<2)return;const max=Math.max(...pts,0.01),min=Math.min(...pts),range=max-min||1,stepX=W/(pts.length-1);ctx.strokeStyle=color;ctx.lineWidth=1.2;ctx.lineJoin='round';ctx.beginPath();for(let i=0;i<pts.length;i++){const x=i*stepX,y=H-((pts[i]-min)/range)*(H-3)-1;i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}ctx.stroke();const pi=pts.indexOf(max),px=pi*stepX,py=H-((max-min)/range)*(H-3)-1;ctx.fillStyle=color;ctx.beginPath();ctx.arc(px,py,2,0,Math.PI*2);ctx.fill();}
   function buildSparkData(date){if(!date)return null;const r={};for(const slot of DataLoader.HOUR_SLOTS){const hd=flowData.getInOutByHour(date,slot);if(!hd)continue;for(const[l,v]of Object.entries(hd)){if(!r[l])r[l]=[];r[l].push(v.inbound+v.outbound);}}return r;}
 
-  function renderSmallMultiples(){const date=getCurrentDate()||flowData.days[flowData.days.length-1];SmallMultiples.render(date,Object.keys(LINE_MAPPING).sort(),(d,slot)=>flowData.getInOutByHour(d,slot));}
+  function renderSmallMultiples(){const date=getCurrentDate()||flowData.days[flowData.days.length-1];SmallMultiples.render(date,Object.keys(LINE_MAPPING).sort(),(d,slot)=>flowData.getInOutByHour(d,slot),computeTII());}
   function renderRidgeline(){const date=getCurrentDate()||flowData.days[flowData.days.length-1];RidgelinePlot.render(date,Object.keys(LINE_MAPPING).sort(),(d,slot)=>flowData.getInOutByHour(d,slot));}
 })();
