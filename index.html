@@ -27,6 +27,10 @@
       <input type="date" id="day-picker" disabled>
       <span id="hour-display" style="display:none"></span>
     </div>
+    <div class="view-btns">
+      <button type="button" id="btn-sm" class="view-btn">小多图</button>
+      <button type="button" id="btn-ridge" class="view-btn">山脊图</button>
+    </div>
   </div>
 
   <div class="player-bar">
@@ -52,6 +56,9 @@
   </div>
 
   <div id="loading">正在加载数据…</div>
+
+  <!-- Small multiples grid -->
+  <div id="sm-grid" class="sm-grid" style="display:none"></div>
 
   <!-- Tidal chart (hour mode only) -->
   <div class="tidal-section" id="tidal-section">
@@ -87,6 +94,9 @@
   <script src="js/brushingLinking.js"></script>
   <script src="js/tidalChart.js"></script>
   <script src="js/transferStations.js"></script>
+  <script src="js/smallMultiples.js"></script>
+  <script src="js/ridgelinePlot.js"></script>
+  <script src="js/flowParticles.js"></script>
   <script src="js/main.js"></script>
 
 </body>

@@ -103,5 +103,43 @@ const TransferStations = (() => {
     tooltipEl.style.display = 'none';
   }
 
-  return { init };
+  /** Returns a line→[connected lines] adjacency map built from all station data
+   *   (2 or more lines at the same position = all mutually connected). */
+  function getLineAdjacency() {
+    const adj = new Map();
+    const allSvgIds = Object.values(LINE_MAPPING).map(c => c.svgId);
+    const posMap = new Map();
+
+    for (const svgId of allSvgIds) {
+      const group = svgRoot.querySelector(`[id="${svgId}"]`);
+      if (!group) continue;
+      const lineNames = [];
+      for (const [name, cfg] of Object.entries(LINE_MAPPING)) {
+        if (cfg.svgId === svgId) lineNames.push(name);
+      }
+      const circles = group.querySelectorAll('circle');
+      for (const c of circles) {
+        const cx = Math.round(parseFloat(c.getAttribute('cx')) / 5) * 5;
+        const cy = Math.round(parseFloat(c.getAttribute('cy')) / 5) * 5;
+        const key = `${cx},${cy}`;
+        if (!posMap.has(key)) posMap.set(key, []);
+        for (const ln of lineNames) {
+          if (!posMap.get(key).some(e => e === ln)) posMap.get(key).push(ln);
+        }
+      }
+    }
+
+    for (const lines of posMap.values()) {
+      if (lines.length < 2) continue;
+      for (const a of lines) {
+        if (!adj.has(a)) adj.set(a, new Set());
+        for (const b of lines) {
+          if (a !== b) adj.get(a).add(b);
+        }
+      }
+    }
+    return adj;
+  }
+
+  return { init, getLineAdjacency };
 })();

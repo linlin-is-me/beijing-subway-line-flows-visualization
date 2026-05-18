@@ -23,13 +23,14 @@ const TIER_LABELS = {
   6: '最高'
 };
 
+// Viridis-based perceptually uniform sequential colormap
 const TIER_COLORS = {
-  1: '#2ecc71',
-  2: '#3498db',
-  3: '#f39c12',
-  4: '#e67e22',
-  5: '#e74c3c',
-  6: '#c0392b'
+  1: '#440154',  // dark purple
+  2: '#3b528b',  // blue
+  3: '#21918c',  // teal
+  4: '#5ec962',  // green
+  5: '#fde725',  // yellow
+  6: '#ff8800'   // orange (top — stands out from sequential scale)
 };
 
 /**

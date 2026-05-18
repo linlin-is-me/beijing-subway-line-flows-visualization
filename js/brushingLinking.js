@@ -1,23 +1,19 @@
 /**
  * Brushing & Linking — bidirectional cross-highlight between map and ranking list.
  *
- * - Hover a line on the map  →  its ranking row highlights, other map lines dim
- * - Hover a ranking row      →  the corresponding map line stays bright, others dim
- *
- * Uses SVG-native opacity attribute (NOT CSS opacity) for reliable cross-browser
- * dimming that cascades to all child elements including pulse-dot <circle>s.
- * Uses [id] selector instead of g[id] to avoid SVG-namespace matching issues
- * when closest() runs inside an HTML document.
+ * v2: Network cascading hover — when hovering a line, its 1-hop transfer neighbours
+ *     are dimmed to 50% while unconnected lines dim to 10%.
  */
+
 const BrushingLinking = (() => {
   let svgRoot = null;
   let rankingContainer = null;
   let hoveredSvgId = null;
-  let hoveredLineName = null;
+  let adjacency = null; // Map<lineName, Set<neighbourName>>
 
-  const DIM_OPACITY = '0.1';
+  const DIM_HALF  = '0.5';
+  const DIM_FULL  = '0.1';
 
-  // ── Indexes ────────────────────────────────────────────────────────
   const svgToLines = (() => {
     const map = {};
     for (const [name, cfg] of Object.entries(LINE_MAPPING)) {
@@ -34,13 +30,31 @@ const BrushingLinking = (() => {
 
   const allSvgIds = new Set(Object.values(LINE_MAPPING).map(c => c.svgId));
 
-  // ── Map dimming (SVG-native opacity attribute) ─────────────────────
+  // ── Map dimming (3 levels) ──────────────────────────────────────
 
-  function dimOthers(svgId) {
+  function getNeighbourSvgIds(svgId) {
+    if (!adjacency) return new Set();
+    const lineNames = svgToLines[svgId] || [];
+    const neighbours = new Set();
+    for (const ln of lineNames) {
+      const adjs = adjacency.get(ln);
+      if (adjs) for (const a of adjs) neighbours.add(lineToSvg[a]);
+    }
+    neighbours.delete(svgId);
+    return neighbours;
+  }
+
+  function dimByLevel(svgId) {
+    const neighbours = getNeighbourSvgIds(svgId);
     for (const id of allSvgIds) {
       if (id === svgId) continue;
       const group = svgRoot.querySelector(`[id="${id}"]`);
-      if (group) group.setAttribute('opacity', DIM_OPACITY);
+      if (!group) continue;
+      if (neighbours.has(id)) {
+        group.setAttribute('opacity', DIM_HALF);
+      } else {
+        group.setAttribute('opacity', DIM_FULL);
+      }
     }
   }
 
@@ -51,7 +65,7 @@ const BrushingLinking = (() => {
     }
   }
 
-  // ── Ranking highlight ──────────────────────────────────────────────
+  // ── Ranking highlight ────────────────────────────────────────────
 
   function highlightRankingRows(lineNames) {
     const nameSet = new Set(lineNames);
@@ -66,25 +80,23 @@ const BrushingLinking = (() => {
     for (const r of rows) r.classList.remove('hl');
   }
 
-  // ── Clear both sides ───────────────────────────────────────────────
-
   function resetAll() {
     clearDimmed();
     clearRankingHL();
     hoveredSvgId = null;
-    hoveredLineName = null;
   }
 
-  // ── Init ───────────────────────────────────────────────────────────
+  // ── Init ─────────────────────────────────────────────────────────
 
   function init(_svgRoot, _rankingContainer) {
     svgRoot = _svgRoot;
     rankingContainer = _rankingContainer;
 
-    // ── Map → Ranking ──────────────────────────────────────────────
+    // Build adjacency from transfer stations
+    adjacency = TransferStations.getLineAdjacency();
 
+    // Map → Ranking
     svgRoot.addEventListener('mouseover', (e) => {
-      // [id] not g[id] — avoids SVG-ns mismatch in HTML document's CSS selector engine
       const group = e.target.closest('[id]');
       if (!group) { resetAll(); return; }
       const id = group.getAttribute('id');
@@ -92,7 +104,7 @@ const BrushingLinking = (() => {
       if (id === hoveredSvgId) return;
       hoveredSvgId = id;
       clearDimmed();
-      dimOthers(id);
+      dimByLevel(id);
       highlightRankingRows(svgToLines[id]);
     });
 
@@ -104,28 +116,25 @@ const BrushingLinking = (() => {
       resetAll();
     });
 
-    // ── Ranking → Map ──────────────────────────────────────────────
-
+    // Ranking → Map
     rankingContainer.addEventListener('mouseover', (e) => {
       const row = e.target.closest('.ranking-row');
       if (!row) { resetAll(); return; }
       const lineName = row.dataset.lineName;
-      if (!lineName || lineName === hoveredLineName) return;
-      hoveredLineName = lineName;
+      if (!lineName) return;
+      hoveredSvgId = lineToSvg[lineName];
       clearRankingHL();
       row.classList.add('hl');
-      const svgId = lineToSvg[lineName];
-      if (svgId) {
+      if (hoveredSvgId) {
         clearDimmed();
-        dimOthers(svgId);
+        dimByLevel(hoveredSvgId);
       }
     });
 
     rankingContainer.addEventListener('mouseout', (e) => {
       const rel = e.relatedTarget;
       const relRow = rel && rel.closest ? rel.closest('.ranking-row') : null;
-      const relName = relRow ? relRow.dataset.lineName : null;
-      if (relName === hoveredLineName) return;
+      if (relRow) return;
       resetAll();
     });
   }
