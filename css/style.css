@@ -524,6 +524,9 @@ body {
   display: block;
 }
 
+#svg-container svg g[id] { pointer-events: all; }
+#svg-container svg g[id] path[stroke] { pointer-events: stroke; cursor: pointer; }
+
 #svg-container svg text {
   font-size: 16px !important;
 }

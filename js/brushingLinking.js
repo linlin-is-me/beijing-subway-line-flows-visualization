@@ -30,6 +30,13 @@ const BrushingLinking = (() => {
 
   const allSvgIds = new Set(Object.values(LINE_MAPPING).map(c => c.svgId));
 
+  // Garbled ID support for new SVG
+  function toSvgId(s){const b=new TextEncoder().encode(s);return new TextDecoder('windows-1252').decode(b);}
+  const G2={},UG={};
+  for(const id of allSvgIds){if(/[^\x00-\x7F]/.test(id)){const g=toSvgId(id);G2[id]=g;UG[g]=id;svgToLines[g]=svgToLines[id]||[];lineToSvg[g]=id;}}
+  function normId(id){return UG[id]||id;}
+  function findGroup(id){let g=svgRoot.querySelector('[id=\"'+id+'\"]');if(g)return g;const gb=G2[id];if(gb){g=svgRoot.querySelector('[id=\"'+gb+'\"]');if(g)return g;}const all=svgRoot.querySelectorAll('g');for(const el of all){const a=el.getAttribute('id');if(a===id||(gb&&a===gb))return el;}return null;}
+
   // ── Map dimming (3 levels) ──────────────────────────────────────
 
   function getNeighbourSvgIds(svgId) {
@@ -48,7 +55,7 @@ const BrushingLinking = (() => {
     const neighbours = getNeighbourSvgIds(svgId);
     for (const id of allSvgIds) {
       if (id === svgId) continue;
-      const group = svgRoot.querySelector(`[id="${id}"]`);
+      const group = findGroup(id);
       if (!group) continue;
       if (neighbours.has(id)) {
         group.setAttribute('opacity', DIM_HALF);
@@ -60,7 +67,7 @@ const BrushingLinking = (() => {
 
   function clearDimmed() {
     for (const id of allSvgIds) {
-      const group = svgRoot.querySelector(`[id="${id}"]`);
+      const group = findGroup(id);
       if (group) group.removeAttribute('opacity');
     }
   }
@@ -97,12 +104,14 @@ const BrushingLinking = (() => {
 
     // Map → Ranking
     svgRoot.addEventListener('mouseover', (e) => {
-      const group = e.target.closest('[id]');
-      if (!group) { resetAll(); return; }
-      const id = group.getAttribute('id');
-      if (!svgToLines[id]) { resetAll(); return; }
+      const group = e.target.closest('g[id]');
+      if (!group) { console.log('br: no [id] on', e.target.tagName); resetAll(); return; }
+      const rawId = group.getAttribute('id');
+      const id = normId(rawId);
+      if (!svgToLines[id]) { console.log('br: id='+rawId+' norm='+id+' not a line'); resetAll(); return; }
       if (id === hoveredSvgId) return;
       hoveredSvgId = id;
+      console.log('br:hover', rawId, '->', id);
       clearDimmed();
       dimByLevel(id);
       highlightRankingRows(svgToLines[id]);
@@ -111,8 +120,10 @@ const BrushingLinking = (() => {
     svgRoot.addEventListener('mouseout', (e) => {
       const rel = e.relatedTarget;
       const relGroup = rel && rel.closest ? rel.closest('[id]') : null;
-      const relId = relGroup ? relGroup.getAttribute('id') : null;
-      if (relId === hoveredSvgId) return;
+      const rawRelId = relGroup ? relGroup.getAttribute('id') : null;
+      const relId = rawRelId ? normId(rawRelId) : null;
+      if (relId === hoveredSvgId) { console.log('br: stay in same line'); return; }
+      console.log('br:clear, hovered='+hoveredSvgId+' rel='+rawRelId);
       resetAll();
     });
 
