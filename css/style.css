@@ -475,6 +475,17 @@ body {
   line-height: 1.5;
 }
 
+/* ── Transfer station pressure ────────────────────── */
+
+.transfer-dot {
+  transition: all 0.3s ease;
+}
+
+.transfer-dot.high-risk {
+  stroke: #e74c3c !important;
+  fill: rgba(255,0,0,0.4) !important;
+}
+
 /* ── SVG Container ─────────────────────────────────── */
 
 .svg-wrapper {

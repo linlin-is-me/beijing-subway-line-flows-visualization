@@ -1,139 +1,67 @@
 /**
- * Transfer station detection & rendering.
- * Finds stations served by ≥3 lines, marks them with larger dots on the SVG,
- * and shows a tooltip listing the passing lines.
+ * Transfer station data — line adjacency for network cascading hover.
+ * No visual markers. Just the connection graph.
  */
 
+const LINE_ALIAS = {
+  '1号线':'1号线-八通线','八通线':'1号线-八通线',
+  '2号线':'2号线','3号线':'3号线',
+  '4号线':'4号线-大兴线','大兴线':'4号线-大兴线',
+  '5号线':'5号线','6号线':'6号线','7号线':'7号线',
+  '8号线':'8号线','9号线':'9号线','10号线':'10号线',
+  '11号线':'11号线','12号线':'12号线','13号线':'13号线',
+  '14号线':'14号线','15号线':'15号线','16号线':'16号线',
+  '17号线':'17号线','18号线':'18号线','19号线':'19号线',
+  '房山线':'房山线','昌平线':'昌平线','亦庄线':'亦庄线',
+  '燕房线':'燕房线','S1线':'S1线','西郊线':'西郊线',
+  '首都机场线':'首都机场线','大兴机场线':'大兴机场线',
+};
+
+const TRANSFER_STATIONS = [
+  ['1号线','2号线'],['1号线','4号线'],['1号线','5号线'],['1号线','8号线'],
+  ['1号线','9号线'],['1号线','10号线'],['1号线','14号线'],['1号线','16号线'],
+  ['1号线','17号线'],['1号线','6号线','S1线'],
+  ['八通线','7号线'],
+  ['2号线','3号线'],['2号线','4号线'],['2号线','5号线'],['2号线','6号线'],
+  ['2号线','8号线'],['2号线','13号线'],['2号线','19号线'],
+  ['2号线','13号线','首都机场线'],
+  ['3号线','14号线'],['3号线','17号线'],
+  ['4号线','6号线','19号线'],['4号线','7号线'],['4号线','9号线','16号线'],
+  ['4号线','10号线'],['4号线','12号线'],['4号线','14号线'],['4号线','16号线'],
+  ['4号线','19号线'],
+  ['5号线','6号线'],['5号线','7号线'],['5号线','10号线'],['5号线','10号线','亦庄线'],
+  ['5号线','12号线'],['5号线','13号线'],['5号线','14号线'],['5号线','15号线'],
+  ['5号线','18号线'],['5号线','首都机场线'],
+  ['6号线','8号线'],['6号线','9号线'],['6号线','10号线'],['6号线','11号线','S1线'],
+  ['6号线','14号线'],['6号线','16号线'],['6号线','17号线'],
+  ['7号线','8号线'],['7号线','9号线'],['7号线','10号线'],['7号线','14号线'],
+  ['7号线','16号线'],['7号线','17号线'],
+  ['8号线','10号线'],['8号线','12号线'],['8号线','13号线'],['8号线','14号线'],
+  ['8号线','15号线'],['8号线','18号线'],['8号线','昌平线'],
+  ['9号线','10号线'],['9号线','14号线'],['9号线','16号线'],['9号线','房山线'],
+  ['10号线','12号线','首都机场线'],['10号线','13号线'],['10号线','14号线','17号线'],
+  ['10号线','16号线'],['10号线','17号线'],['10号线','19号线'],['10号线','昌平线'],
+  ['10号线','西郊线'],['10号线','房山线'],['10号线','19号线','大兴机场线'],
+  ['12号线','13号线'],['12号线','14号线'],['12号线','16号线'],['12号线','17号线'],
+  ['12号线','19号线'],['12号线','昌平线'],
+  ['13号线','15号线','17号线'],['13号线','昌平线'],
+  ['14号线','15号线'],['14号线','16号线'],['14号线','19号线'],
+  ['15号线','昌平线'],
+  ['16号线','18号线'],['16号线','房山线'],
+  ['17号线','18号线'],['17号线','亦庄线'],
+  ['房山线','燕房线'],
+];
+
 const TransferStations = (() => {
-  let svgRoot = null;
-  let tooltipEl = null;
-  let markers = [];  // { circle, lines: [name], cx, cy }
+  function dataLine(alias) { return LINE_ALIAS[alias] || alias; }
 
-  function init(_svgRoot) {
-    svgRoot = _svgRoot;
-
-    // Build position→lines index by scanning each line group's circles
-    const posMap = new Map(); // "cx,cy" → [{line, circle}]
-    const allSvgIds = Object.values(LINE_MAPPING).map(c => c.svgId);
-
-    for (const svgId of allSvgIds) {
-      const group = svgRoot.querySelector(`[id="${svgId}"]`);
-      if (!group) continue;
-
-      // Get line data names for this SVG group
-      const lineNames = [];
-      for (const [name, cfg] of Object.entries(LINE_MAPPING)) {
-        if (cfg.svgId === svgId) lineNames.push(name);
-      }
-
-      const circles = group.querySelectorAll('circle');
-      for (const c of circles) {
-        const cx = Math.round(parseFloat(c.getAttribute('cx')) / 5) * 5;
-        const cy = Math.round(parseFloat(c.getAttribute('cy')) / 5) * 5;
-        const key = `${cx},${cy}`;
-        if (!posMap.has(key)) posMap.set(key, []);
-        for (const ln of lineNames) {
-          if (!posMap.get(key).some(e => e.line === ln)) {
-            posMap.get(key).push({ line: ln });
-          }
-        }
-      }
-    }
-
-    // Filter: positions with ≥3 distinct lines
-    const transferLayer = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    transferLayer.setAttribute('id', 'transfer-stations');
-    svgRoot.appendChild(transferLayer);
-
-    for (const [key, entries] of posMap) {
-      if (entries.length < 3) continue;
-      const [cx, cy] = key.split(',').map(Number);
-      const lines = entries.map(e => e.line).sort();
-
-      const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      dot.setAttribute('cx', cx);
-      dot.setAttribute('cy', cy);
-      dot.setAttribute('r', 6);
-      dot.setAttribute('fill', '#fff');
-      dot.setAttribute('stroke', '#3498db');
-      dot.setAttribute('stroke-width', 2.5);
-      dot.setAttribute('class', 'transfer-dot');
-      dot.setAttribute('data-lines', lines.join('|'));
-      dot.style.cursor = 'pointer';
-      transferLayer.appendChild(dot);
-
-      markers.push({ el: dot, lines, cx, cy });
-    }
-
-    // Mouse events
-    ensureTooltip();
-    transferLayer.addEventListener('mouseover', onOver);
-    transferLayer.addEventListener('mousemove', onMove);
-    transferLayer.addEventListener('mouseout', onOut);
-  }
-
-  function ensureTooltip() {
-    if (tooltipEl) return;
-    tooltipEl = document.createElement('div');
-    tooltipEl.className = 'transfer-tooltip';
-    document.body.appendChild(tooltipEl);
-  }
-
-  function onOver(e) {
-    const dot = e.target.closest('.transfer-dot');
-    if (!dot) return;
-    const lines = (dot.getAttribute('data-lines') || '').split('|');
-    tooltipEl.innerHTML = `<div class="tt-title">换乘站 · ${lines.length}条线路</div>
-      ${lines.map(l => `<span class="tt-line">${l}</span>`).join('')}`;
-    tooltipEl.style.display = 'block';
-  }
-
-  function onMove(e) {
-    const rect = tooltipEl.getBoundingClientRect();
-    let left = e.clientX + 14, top = e.clientY + 14;
-    if (left + rect.width > window.innerWidth - 10) left = e.clientX - rect.width - 14;
-    if (top + rect.height > window.innerHeight - 10) top = e.clientY - rect.height - 14;
-    tooltipEl.style.left = left + 'px';
-    tooltipEl.style.top = top + 'px';
-  }
-
-  function onOut(e) {
-    const rel = e.relatedTarget;
-    if (rel && rel.closest && rel.closest('.transfer-dot')) return;
-    tooltipEl.style.display = 'none';
-  }
-
-  /** Returns a line→[connected lines] adjacency map built from all station data
-   *   (2 or more lines at the same position = all mutually connected). */
   function getLineAdjacency() {
     const adj = new Map();
-    const allSvgIds = Object.values(LINE_MAPPING).map(c => c.svgId);
-    const posMap = new Map();
-
-    for (const svgId of allSvgIds) {
-      const group = svgRoot.querySelector(`[id="${svgId}"]`);
-      if (!group) continue;
-      const lineNames = [];
-      for (const [name, cfg] of Object.entries(LINE_MAPPING)) {
-        if (cfg.svgId === svgId) lineNames.push(name);
-      }
-      const circles = group.querySelectorAll('circle');
-      for (const c of circles) {
-        const cx = Math.round(parseFloat(c.getAttribute('cx')) / 5) * 5;
-        const cy = Math.round(parseFloat(c.getAttribute('cy')) / 5) * 5;
-        const key = `${cx},${cy}`;
-        if (!posMap.has(key)) posMap.set(key, []);
-        for (const ln of lineNames) {
-          if (!posMap.get(key).some(e => e === ln)) posMap.get(key).push(ln);
-        }
-      }
-    }
-
-    for (const lines of posMap.values()) {
-      if (lines.length < 2) continue;
-      for (const a of lines) {
+    for (const st of TRANSFER_STATIONS) {
+      const dl = st.map(dataLine);
+      for (const a of dl) {
         if (!adj.has(a)) adj.set(a, new Set());
-        for (const b of lines) {
+        for (const b of dl) {
           if (a !== b) adj.get(a).add(b);
         }
       }
@@ -141,5 +69,5 @@ const TransferStations = (() => {
     return adj;
   }
 
-  return { init, getLineAdjacency };
+  return { getLineAdjacency };
 })();

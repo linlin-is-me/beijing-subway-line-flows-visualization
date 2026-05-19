@@ -57,7 +57,6 @@
     if (!svgRoot) throw new Error('No <svg> element found');
   } catch (err) { loadingEl.textContent = `SVG 加载失败: ${err.message}`; loadingEl.classList.add('error'); console.error(err); return; }
 
-  TransferStations.init(svgRoot);
   TooltipManager.init(svgRoot);
   BrushingLinking.init(svgRoot, rankingCont);
   TidalChart.init(document.getElementById('tidal-canvas'));
