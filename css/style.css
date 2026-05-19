@@ -495,10 +495,17 @@ body {
   0%, 100% { opacity: 1; r: 4; }
   50%      { opacity: 0.2; r: 12; }
 }
+@keyframes pressure-pulse-high {
+  0%, 100% { opacity: 1; r: 6; }
+  50%      { opacity: 0.15; r: 18; }
+}
 
 .pressure-pulse {
   animation: pressure-pulse 1.5s ease-in-out infinite;
   pointer-events: none;
+}
+.pressure-pulse.pressure-pulse-high {
+  animation: pressure-pulse-high 1.3s ease-in-out infinite;
 }
 
 /* ── SVG Container ─────────────────────────────────── */

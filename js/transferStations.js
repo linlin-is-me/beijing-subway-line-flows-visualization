@@ -129,7 +129,7 @@ const TransferStations = (() => {
     for (const p of pressures) {
       let color, radius, strokeW, hasPulse;
       if (p.pressure >= 5) {
-        color = '#ff4444'; radius = 12; strokeW = 4; hasPulse = true;   // red
+        color = '#ff4444'; radius = 16; strokeW = 5; hasPulse = true;   // red
       } else if (p.pressure >= 3) {
         color = '#fde725'; radius = 10; strokeW = 4; hasPulse = true;   // yellow
       } else {
@@ -152,9 +152,9 @@ const TransferStations = (() => {
         const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
         dot.setAttribute('cx', p.cx);
         dot.setAttribute('cy', p.cy);
-        dot.setAttribute('r', '4');
+        dot.setAttribute('r', p.pressure >= 5 ? '6' : '4');
         dot.setAttribute('fill', color);
-        dot.setAttribute('class', 'pressure-pulse');
+        dot.setAttribute('class', 'pressure-pulse' + (p.pressure >= 5 ? ' pressure-pulse-high' : ''));
         markerGroup.appendChild(dot);
       }
     }
