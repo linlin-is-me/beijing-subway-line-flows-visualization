@@ -71,84 +71,50 @@ const TransferStations = (() => {
 
   // ---- Station pressure (Module 2) ----
 
-  let stationData = [];   // [{cx, cy, dataLines: [...]}, ...]
+  let stationData = [];   // [{name, cx, cy, lines: [...]}, ...]
   let markerGroup = null;
 
-  function buildSvgToDataMap() {
-    const map = {};
-    for (const [dataLine, cfg] of Object.entries(LINE_MAPPING)) {
-      if (!map[cfg.svgId]) map[cfg.svgId] = [];
-      map[cfg.svgId].push(dataLine);
-    }
-    return map;
-  }
+  async function init(svgRoot) {
+    try {
+      const resp = await fetch('data/transfer_stations_positions.json');
+      if (!resp.ok) throw new Error('Failed to load transfer stations: ' + resp.status);
+      const raw = await resp.json();
 
-  function init(svgRoot) {
-    const svgToData = buildSvgToDataMap();
-
-    // Line-group circles (r=4)
-    const lineCirclesByGroup = {};
-    const processedSvgIds = new Set();
-    for (const cfg of Object.values(LINE_MAPPING)) {
-      if (processedSvgIds.has(cfg.svgId)) continue;
-      processedSvgIds.add(cfg.svgId);
-      const group = svgRoot.querySelector('[id="' + cfg.svgId + '"]');
-      if (!group) continue;
-      const circles = group.querySelectorAll('circle[r="4"]');
-      lineCirclesByGroup[cfg.svgId] = Array.from(circles).map(c => ({
-        cx: parseFloat(c.getAttribute('cx')),
-        cy: parseFloat(c.getAttribute('cy'))
-      }));
-    }
-
-    // Transfer circles (r=5) from 换乘站
-    const transferGroup = svgRoot.querySelector('[id="换乘站"]');
-    if (!transferGroup) { console.warn('Transfer group not found'); return; }
-    const transferCircles = transferGroup.querySelectorAll('circle[r="5"]');
-
-    const THRESHOLD = 60;
-    stationData = [];
-
-    for (const tc of transferCircles) {
-      const tcx = parseFloat(tc.getAttribute('cx'));
-      const tcy = parseFloat(tc.getAttribute('cy'));
-
-      const matchedDataLines = new Set();
-      for (const [svgId, circles] of Object.entries(lineCirclesByGroup)) {
-        let minDist = Infinity;
-        for (const c of circles) {
-          const dx = c.cx - tcx, dy = c.cy - tcy;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < minDist) minDist = dist;
-        }
-        if (minDist < THRESHOLD) {
-          const aliases = svgToData[svgId];
-          if (aliases) aliases.forEach(dl => matchedDataLines.add(dl));
-        }
-      }
-
-      if (matchedDataLines.size >= 2) {
+      // Deduplicate by name + rounded position
+      const seen = new Set();
+      stationData = [];
+      for (const st of raw) {
+        if (!st.lines || st.lines.length < 2) continue;
+        const key = st.name + '|' + Math.round(st.cx) + ',' + Math.round(st.cy);
+        if (seen.has(key)) continue;
+        seen.add(key);
         stationData.push({
-          cx: tcx,
-          cy: tcy,
-          dataLines: [...matchedDataLines]
+          name: st.name,
+          cx: st.cx,
+          cy: st.cy,
+          lines: [...st.lines]
         });
       }
+      console.log('Transfer stations loaded:', stationData.length);
+    } catch (e) {
+      console.error('TransferStations init failed:', e);
+      stationData = [];
     }
   }
 
   function computePressures(lineTiers) {
     return stationData.map(st => {
-      let pressure = 0;
-      for (const dl of st.dataLines) {
-        pressure += lineTiers[dl] || 1;
+      let sum = 0;
+      for (const l of st.lines) {
+        sum += lineTiers[l] || 1;
       }
+      const avgTier = sum / st.lines.length;
       return {
         cx: st.cx,
         cy: st.cy,
-        dataLines: st.dataLines,
-        pressure,
-        isHighRisk: pressure >= 12
+        lines: st.lines,
+        pressure: avgTier,
+        isHighRisk: avgTier >= 5
       };
     });
   }
@@ -161,10 +127,14 @@ const TransferStations = (() => {
     svgRoot.appendChild(markerGroup);
 
     for (const p of pressures) {
-      if (p.pressure < 8) continue;
-      let color, radius;
-      if (p.pressure >= 12)       { color = '#ff4444'; radius = 12; }
-      else                        { color = '#fde725'; radius = 10; }
+      let color, radius, strokeW, hasPulse;
+      if (p.pressure >= 5) {
+        color = '#ff4444'; radius = 12; strokeW = 4; hasPulse = true;   // red
+      } else if (p.pressure >= 3) {
+        color = '#fde725'; radius = 10; strokeW = 4; hasPulse = true;   // yellow
+      } else {
+        color = '#5ec962'; radius = 8;  strokeW = 3; hasPulse = false;  // green
+      }
 
       const ring = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
       ring.setAttribute('cx', p.cx);
@@ -172,18 +142,21 @@ const TransferStations = (() => {
       ring.setAttribute('r', radius);
       ring.setAttribute('fill', 'none');
       ring.setAttribute('stroke', color);
-      ring.setAttribute('stroke-width', '4');
+      ring.setAttribute('stroke-width', strokeW);
       ring.setAttribute('class', 'pressure-marker');
-      if (p.isHighRisk) ring.classList.add('pressure-high-risk');
+      if (p.pressure >= 5) ring.classList.add('pressure-high-risk');
+      else if (p.pressure < 3) ring.classList.add('pressure-marker-low');
       markerGroup.appendChild(ring);
 
-      const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      dot.setAttribute('cx', p.cx);
-      dot.setAttribute('cy', p.cy);
-      dot.setAttribute('r', '4');
-      dot.setAttribute('fill', color);
-      dot.setAttribute('class', 'pressure-pulse');
-      markerGroup.appendChild(dot);
+      if (hasPulse) {
+        const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        dot.setAttribute('cx', p.cx);
+        dot.setAttribute('cy', p.cy);
+        dot.setAttribute('r', '4');
+        dot.setAttribute('fill', color);
+        dot.setAttribute('class', 'pressure-pulse');
+        markerGroup.appendChild(dot);
+      }
     }
   }
 

@@ -63,7 +63,7 @@
   SmallMultiples.init(document.getElementById('sm-grid'));
   RidgelinePlot.init(document.body);
   FlowParticles.init(svgRoot);
-  TransferStations.init(svgRoot);
+  await TransferStations.init(svgRoot);
 
   renderLegend();
   loadingEl.style.display = 'none';

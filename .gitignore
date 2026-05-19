@@ -1,6 +1,8 @@
 # Temp analysis files
 svg_group_ids.json
 svg_ids.txt
-flows_data/bj_subway_flows.json
+DEVELOPMENT_DOC.md
+MetroFlow.docx
+data/
 # Dev server
 __pycache__/

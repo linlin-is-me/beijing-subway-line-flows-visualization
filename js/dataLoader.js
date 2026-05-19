@@ -28,7 +28,7 @@ const DataLoader = (() => {
   async function load() {
     if (dateIndex.size) return buildResult();
 
-    const resp = await fetch('flows_data/bj_subway_flows.json');
+    const resp = await fetch('data/bj_subway_flows.json');
     if (!resp.ok) throw new Error(`Failed to load: ${resp.status}`);
     const raw = await resp.json();
 
