@@ -24,6 +24,16 @@ const TooltipManager = (() => {
     return map;
   })();
 
+  // Garbled ID support for new SVG (same as svgRenderer / brushingLinking)
+  function toSvgId(s){const b=new TextEncoder().encode(s);return new TextDecoder('windows-1252').decode(b);}
+  const UNGARBLE = {};
+  (() => {
+    for (const id of Object.keys(svgToLines)) {
+      if (/[^\x00-\x7F]/.test(id)) { const g = toSvgId(id); UNGARBLE[g] = id; svgToLines[g] = svgToLines[id]; }
+    }
+  })();
+  function normId(id) { return UNGARBLE[id] || id; }
+
   function ensureTooltip() {
     if (tooltipEl) return;
     tooltipEl = document.createElement('div');
@@ -101,17 +111,12 @@ const TooltipManager = (() => {
     svgRoot = _svgRoot;
     ensureTooltip();
 
-    // Set pointer cursor on interactive line groups
-    for (const svgId of Object.keys(svgToLines)) {
-      const group = svgRoot.querySelector(`[id="${svgId}"]`);
-      if (group) group.style.cursor = 'pointer';
-    }
-
-    // Event delegation — listeners live on the SVG root
+    // Delegation listeners
     svgRoot.addEventListener('mouseover', (e) => {
-      const group = e.target.closest('[id]');
+      const group = e.target.closest('g[id]');
       if (!group) { hide(); return; }
-      const id = group.getAttribute('id');
+      const rawId = group.getAttribute('id');
+      const id = normId(rawId);
       if (!svgToLines[id]) { hide(); return; }
       if (id === hoveredSvgId) return;
       hoveredSvgId = id;
@@ -124,9 +129,10 @@ const TooltipManager = (() => {
 
     svgRoot.addEventListener('mouseout', (e) => {
       const rel = e.relatedTarget;
-      const relGroup = rel && rel.closest ? rel.closest('[id]') : null;
-      const relId = relGroup ? relGroup.getAttribute('id') : null;
-      if (relId === hoveredSvgId) return; // still inside same group
+      const relGroup = rel && rel.closest ? rel.closest('g[id]') : null;
+      const rawRelId = relGroup ? relGroup.getAttribute('id') : null;
+      const relId = rawRelId ? normId(rawRelId) : null;
+      if (relId === hoveredSvgId) return;
       hide();
     });
   }
