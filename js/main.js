@@ -63,6 +63,7 @@
   SmallMultiples.init(document.getElementById('sm-grid'));
   RidgelinePlot.init(document.body);
   FlowParticles.init(svgRoot);
+  TransferStations.init(svgRoot);
 
   renderLegend();
   loadingEl.style.display = 'none';
@@ -159,7 +160,7 @@
     const label=getLabelForIndex();const lineFlows=getFlowForIndex();if(!lineFlows){titleEl.textContent=`${label} — 无数据`;return;}
     const curRanking=computeRanking(lineFlows);const prevFlows=getPrevFlowForIndex();TooltipManager.updateData(lineFlows,curRanking,computeRanking(prevFlows));
     SvgRenderer.resetAll(svgRoot);const lineTiers=classifyFlows(lineFlows);const glowSvgId=findTopSvgGroup(lineFlows);const groupTierMap=buildSvgGroupTierMap(lineTiers);if(glowSvgId)groupTierMap[glowSvgId]=6;
-    SvgRenderer.render(svgRoot,groupTierMap);const dirs=computeDirections();FlowParticles.update(groupTierMap,dirs,lineFlows);
+    SvgRenderer.render(svgRoot,groupTierMap);const pressures=TransferStations.computePressures(lineTiers);TransferStations.renderMarkers(svgRoot,pressures);const dirs=computeDirections();FlowParticles.update(groupTierMap,dirs,lineFlows);
     titleEl.textContent=`${label} 客流量分布`;updateSceneTags();updateLegend(lineFlows,lineTiers);
     if(currentMode==='hour')hourDisplay.textContent=label;
     if(currentMode==='hour'){if(!tidalLine)tidalLine=Object.keys(lineFlows)[0];tidalName.textContent=tidalLine;TidalChart.render(dayPicker.value,tidalLine,DataLoader.HOUR_SLOTS,(date,slot)=>flowData.getInOutByHour(date,slot));}

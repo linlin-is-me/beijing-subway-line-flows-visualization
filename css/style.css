@@ -475,15 +475,26 @@ body {
   line-height: 1.5;
 }
 
-/* ── Transfer station pressure ────────────────────── */
+/* ── Transfer station pressure markers ────────────── */
 
-.transfer-dot {
-  transition: all 0.3s ease;
+.pressure-marker {
+  transition: all 0.4s ease;
+  pointer-events: none;
+  filter: drop-shadow(0 0 5px rgba(253,231,37,0.6));
 }
 
-.transfer-dot.high-risk {
-  stroke: #e74c3c !important;
-  fill: rgba(255,0,0,0.4) !important;
+.pressure-marker.pressure-high-risk {
+  filter: drop-shadow(0 0 8px rgba(255,68,68,0.9));
+}
+
+@keyframes pressure-pulse {
+  0%, 100% { opacity: 1; r: 4; }
+  50%      { opacity: 0.2; r: 12; }
+}
+
+.pressure-pulse {
+  animation: pressure-pulse 1.5s ease-in-out infinite;
+  pointer-events: none;
 }
 
 /* ── SVG Container ─────────────────────────────────── */
