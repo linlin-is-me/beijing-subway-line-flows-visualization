@@ -538,6 +538,12 @@ body {
   font-size: 16px !important;
 }
 
+/* Remove white stroke from station name paths */
+#svg-container svg g[id^="zh-hans"] path,
+#svg-container svg g[id^="zh-hant"] path {
+  stroke: none !important;
+}
+
 /* ── Legend ────────────────────────────────────────── */
 
 .legend-panel {

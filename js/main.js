@@ -57,6 +57,19 @@
     if (!svgRoot) throw new Error('No <svg> element found');
   } catch (err) { loadingEl.textContent = `SVG 加载失败: ${err.message}`; loadingEl.classList.add('error'); console.error(err); return; }
 
+  // Scale station name labels by 1.4x
+  svgRoot.querySelectorAll('g[id^="zh-hans"], g[id^="zh-hant"]').forEach(g => {
+    try {
+      const bb = g.getBBox();
+      if (bb.width === 0 && bb.height === 0) return;
+      const cx = bb.x + bb.width / 2, cy = bb.y + bb.height / 2;
+      const wrap = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      wrap.setAttribute('transform', 'translate(' + cx + ',' + cy + ') scale(1.35) translate(' + (-cx) + ',' + (-cy) + ')');
+      while (g.firstChild) wrap.appendChild(g.firstChild);
+      g.appendChild(wrap);
+    } catch(e) {}
+  });
+
   TooltipManager.init(svgRoot);
   BrushingLinking.init(svgRoot, rankingCont);
   TidalChart.init(document.getElementById('tidal-canvas'));

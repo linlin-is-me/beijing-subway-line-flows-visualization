@@ -105,13 +105,12 @@ const BrushingLinking = (() => {
     // Map → Ranking
     svgRoot.addEventListener('mouseover', (e) => {
       const group = e.target.closest('g[id]');
-      if (!group) { console.log('br: no [id] on', e.target.tagName); resetAll(); return; }
+      if (!group) { resetAll(); return; }
       const rawId = group.getAttribute('id');
       const id = normId(rawId);
-      if (!svgToLines[id]) { console.log('br: id='+rawId+' norm='+id+' not a line'); resetAll(); return; }
+      if (!svgToLines[id]) { resetAll(); return; }
       if (id === hoveredSvgId) return;
       hoveredSvgId = id;
-      console.log('br:hover', rawId, '->', id);
       clearDimmed();
       dimByLevel(id);
       highlightRankingRows(svgToLines[id]);
@@ -119,11 +118,10 @@ const BrushingLinking = (() => {
 
     svgRoot.addEventListener('mouseout', (e) => {
       const rel = e.relatedTarget;
-      const relGroup = rel && rel.closest ? rel.closest('[id]') : null;
+      const relGroup = rel && rel.closest ? rel.closest('g[id]') : null;
       const rawRelId = relGroup ? relGroup.getAttribute('id') : null;
       const relId = rawRelId ? normId(rawRelId) : null;
-      if (relId === hoveredSvgId) { console.log('br: stay in same line'); return; }
-      console.log('br:clear, hovered='+hoveredSvgId+' rel='+rawRelId);
+      if (relId === hoveredSvgId) return;
       resetAll();
     });
 
