@@ -479,7 +479,7 @@ body {
 
 .pressure-marker {
   transition: all 0.4s ease;
-  pointer-events: none;
+  pointer-events: all;
   filter: drop-shadow(0 0 5px rgba(253,231,37,0.6));
 }
 
@@ -502,11 +502,31 @@ body {
 
 .pressure-pulse {
   animation: pressure-pulse 1.5s ease-in-out infinite;
-  pointer-events: none;
+  pointer-events: all;
 }
 .pressure-pulse.pressure-pulse-high {
   animation: pressure-pulse-high 1.3s ease-in-out infinite;
 }
+
+/* ── Pressure tooltip ─────────────────────────────── */
+
+.pressure-tooltip {
+  display: none;
+  position: fixed;
+  z-index: 10000;
+  background: rgba(26,26,46,0.95);
+  color: #fff;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  pointer-events: none;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+}
+.pt-row { white-space: nowrap; line-height: 1.6; }
+.pt-row b { font-size: 14px; }
+.pt-red { color: #ff4444; }
+.pt-yel { color: #fde725; }
+.pt-grn { color: #5ec962; }
 
 /* ── SVG Container ─────────────────────────────────── */
 

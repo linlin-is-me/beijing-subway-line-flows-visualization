@@ -110,6 +110,7 @@ const TransferStations = (() => {
       }
       const avgTier = sum / st.lines.length;
       return {
+        name: st.name,
         cx: st.cx,
         cy: st.cy,
         lines: st.lines,
@@ -119,8 +120,23 @@ const TransferStations = (() => {
     });
   }
 
+  let pTooltip = null;
+  function ensurePTooltip() {
+    if (pTooltip) return;
+    pTooltip = document.createElement('div');
+    pTooltip.className = 'pressure-tooltip';
+    document.body.appendChild(pTooltip);
+  }
+
+  function pressureLabel(avg) {
+    if (avg >= 5) return '高压站点';
+    if (avg >= 4) return '拥堵站点';
+    return '通畅站点';
+  }
+
   function renderMarkers(svgRoot, pressures) {
     if (markerGroup) markerGroup.remove();
+    ensurePTooltip();
 
     markerGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     markerGroup.setAttribute('id', 'pressure-markers');
@@ -130,11 +146,14 @@ const TransferStations = (() => {
       let color, radius, strokeW, hasPulse;
       if (p.pressure >= 5) {
         color = '#ff4444'; radius = 16; strokeW = 5; hasPulse = true;   // red
-      } else if (p.pressure >= 3) {
+      } else if (p.pressure >= 4) {
         color = '#fde725'; radius = 10; strokeW = 4; hasPulse = true;   // yellow
       } else {
         color = '#047857'; radius = 8;  strokeW = 3; hasPulse = false;  // green
       }
+
+      const plabel = pressureLabel(p.pressure);
+      const tipHtml = '<div class="pt-row"><b>' + p.name + '</b></div><div class="pt-row pt-' + (p.pressure >= 5 ? 'red' : p.pressure >= 4 ? 'yel' : 'grn') + '">' + plabel + '</div>';
 
       const ring = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
       ring.setAttribute('cx', p.cx);
@@ -145,7 +164,10 @@ const TransferStations = (() => {
       ring.setAttribute('stroke-width', strokeW);
       ring.setAttribute('class', 'pressure-marker');
       if (p.pressure >= 5) ring.classList.add('pressure-high-risk');
-      else if (p.pressure < 3) ring.classList.add('pressure-marker-low');
+      else if (p.pressure < 4) ring.classList.add('pressure-marker-low');
+      ring.addEventListener('mouseover', (e) => { pTooltip.innerHTML = tipHtml; pTooltip.style.display = 'block'; });
+      ring.addEventListener('mousemove', (e) => { pTooltip.style.left = (e.clientX + 12) + 'px'; pTooltip.style.top = (e.clientY + 12) + 'px'; });
+      ring.addEventListener('mouseout', () => { pTooltip.style.display = 'none'; });
       markerGroup.appendChild(ring);
 
       if (hasPulse) {
@@ -155,6 +177,9 @@ const TransferStations = (() => {
         dot.setAttribute('r', p.pressure >= 5 ? '6' : '4');
         dot.setAttribute('fill', color);
         dot.setAttribute('class', 'pressure-pulse' + (p.pressure >= 5 ? ' pressure-pulse-high' : ''));
+        dot.addEventListener('mouseover', (e) => { pTooltip.innerHTML = tipHtml; pTooltip.style.display = 'block'; });
+        dot.addEventListener('mousemove', (e) => { pTooltip.style.left = (e.clientX + 12) + 'px'; pTooltip.style.top = (e.clientY + 12) + 'px'; });
+        dot.addEventListener('mouseout', () => { pTooltip.style.display = 'none'; });
         markerGroup.appendChild(dot);
       }
     }
