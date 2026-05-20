@@ -3,7 +3,6 @@
  */
 (async function main() {
   const dayPicker   = document.getElementById('day-picker');
-  const hourPicker = document.getElementById('hour-picker');
   const modeBtns    = document.querySelectorAll('.mode-btn');
   const svgContainer= document.getElementById('svg-container');
   const legendCont  = document.getElementById('legend');
@@ -89,7 +88,7 @@
   BrushingLinking.init(svgRoot, rankingCont);
   TidalChart.init(document.getElementById('tidal-canvas'));
   SmallMultiples.init(document.getElementById('sm-grid'));
-  RidgelinePlot.init(document.body);
+  RidgelinePlot.init(document.body, () => { viewActive.ridge = false; btnRidge.classList.remove('active'); });
   FlowParticles.init(svgRoot);
   await TransferStations.init(svgRoot);
 
@@ -120,7 +119,12 @@
     btnSM.classList.toggle('active', viewActive.sm);
     if (viewActive.sm) renderSmallMultiples();
   });
-  btnRidge.addEventListener('click', () => { RidgelinePlot.toggle(); btnRidge.classList.toggle('active'); if (!viewActive.ridge) renderRidgeline(); });
+  btnRidge.addEventListener('click', () => {
+    RidgelinePlot.toggle();
+    viewActive.ridge = !viewActive.ridge;
+    btnRidge.classList.toggle('active', viewActive.ridge);
+    if (viewActive.ridge) renderRidgeline();
+  });
   btnHeatmap.addEventListener('click', () => {
     viewActive.heatmap = !viewActive.heatmap;
     btnHeatmap.classList.toggle('active', viewActive.heatmap);
@@ -185,8 +189,8 @@
   function renderCurrentFrame() {
     const label=getLabelForIndex();const lineFlows=getFlowForIndex();if(!lineFlows){titleEl.textContent=`${label} — 无数据`;return;}
     const curRanking=computeRanking(lineFlows);const prevFlows=getPrevFlowForIndex();TooltipManager.updateData(lineFlows,curRanking,computeRanking(prevFlows));
-    SvgRenderer.resetAll(svgRoot);const lineTiers=classifyFlows(lineFlows);const glowSvgId=findTopSvgGroup(lineFlows);const groupTierMap=buildSvgGroupTierMap(lineTiers);if(glowSvgId){groupTierMap[glowSvgId]=6;for(const[n,c]of Object.entries(LINE_MAPPING)){if(c.svgId===glowSvgId)lineTiers[n]=6;}}
-    if(viewActive.heatmap){SvgRenderer.renderUniform(svgRoot,'#999999');}else{SvgRenderer.render(svgRoot,groupTierMap);}
+    SvgRenderer.resetAll(svgRoot);const lineTiers=classifyFlows(lineFlows);let groupTierMap;
+    if(viewActive.heatmap){SvgRenderer.renderUniform(svgRoot,'#999999');}else{const glowSvgId=findTopSvgGroup(lineFlows);groupTierMap=buildSvgGroupTierMap(lineTiers);if(glowSvgId){groupTierMap[glowSvgId]=6;for(const[n,c]of Object.entries(LINE_MAPPING)){if(c.svgId===glowSvgId)lineTiers[n]=6;}}SvgRenderer.render(svgRoot,groupTierMap);}
     const pressures=TransferStations.computePressures(lineTiers);TransferStations.renderMarkers(svgRoot,pressures);HeatmapRenderer.render(heatmapCanvas,pressures);const dirs=computeDirections();
     if(!viewActive.heatmap)FlowParticles.update(groupTierMap,dirs,lineFlows);
     titleEl.textContent=`${label} 客流量分布`;updateSceneTags();updateLegend(lineFlows,lineTiers);
@@ -199,7 +203,7 @@
   function scheduleRankingUpdate(){if(rankingPending)return;rankingPending=true;requestAnimationFrame(()=>{rankingPending=false;const lf=getFlowForIndex();if(!lf)return;const lt=classifyFlows(lf);const tid=findTopSvgGroup(lf);if(tid)for(const[n,c]of Object.entries(LINE_MAPPING)){if(c.svgId===tid)lt[n]=6;}updateRanking(lf,lt,computeDirections(),buildSparkData(getCurrentDate()),computeTII());});}
   function updateProgressUI(){const t=seqKeys.length;const pct=t>0?Math.max(0,Math.min(100,(seqIndex+1)/t*100)):0;progressLbl.textContent=t>0?`${Math.max(1,seqIndex+1)}/${t}`:'0/0';progressFill.style.width=`${pct.toFixed(1)}%`;thumb.style.left=`${pct.toFixed(1)}%`;}
 
-  function updateVisualization(){const pv=dayPicker.value;const idx=seqKeys.indexOf(pv);if(idx>=0)seqIndex=idx;updateProgressUI();const lf=getFlowForIndex();if(!lf)return;renderCurrentFrame();const lt=classifyFlows(lf);const tid=findTopSvgGroup(lf);if(tid)for(const[n,c]of Object.entries(LINE_MAPPING)){if(c.svgId===tid)lt[n]=6;}updateRanking(lf,lt,computeDirections(),buildSparkData(getCurrentDate()),computeTII());}
+  function updateVisualization(){const pv=dayPicker.value;const idx=seqKeys.indexOf(pv);if(idx>=0)seqIndex=idx;updateProgressUI();const lf=getFlowForIndex();if(!lf)return;renderCurrentFrame();}
 
   function renderLegend(){legendCont.innerHTML='';for(let t=6;t>=1;t--){const d=document.createElement('div');d.className='legend-item';d.innerHTML=`<span class="legend-line" style="--legend-width:${STROKE_WIDTH_MAP[t]}px;--legend-color:${TIER_COLORS[t]};"></span><span class="legend-label">${TIER_LABELS[t]}</span><span class="legend-width">${STROKE_WIDTH_MAP[t]}px</span>`;legendCont.appendChild(d);}}
   function updateLegend(lf,lt){const v=Object.values(lf).filter(x=>typeof x==='number');const s=[...v].sort((a,b)=>a-b);const[p20,p40,p60,p80]=[20,40,60,80].map(p=>percentile(s,p));const labels=[`> ${p80.toFixed(2)} 万`,`${p60.toFixed(2)} ~ ${p80.toFixed(2)} 万`,`${p40.toFixed(2)} ~ ${p60.toFixed(2)} 万`,`${p20.toFixed(2)} ~ ${p40.toFixed(2)} 万`,`≤ ${p20.toFixed(2)} 万`];legendCont.querySelectorAll('.legend-item').forEach((item,i)=>{const lbl=item.querySelector('.legend-label');const old=item.querySelector('.legend-threshold');if(old)old.remove();if(i===0)return;if(lbl){const sp=document.createElement('span');sp.className='legend-threshold';sp.textContent=labels[i-1];lbl.after(sp);}});}

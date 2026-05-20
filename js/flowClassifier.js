@@ -1,8 +1,9 @@
 /**
- * Five-tier classification based on equal quintile (20-percentile) thresholds.
+ * Six-tier classification based on equal quintile (20-percentile) thresholds.
  *
  * Input:  { lineName: flowValue }  (28 values for one date)
  * Output: { lineName: 1|2|3|4|5 }
+ * Tier 6 is assigned externally for the top-flow line.
  */
 
 const STROKE_WIDTH_MAP = {

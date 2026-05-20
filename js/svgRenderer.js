@@ -24,42 +24,8 @@ const SvgRenderer = (() => {
     return null;
   }
 
-  let colorToSvgId = null; // lazily built: original stroke color → svgId
-
-  function buildColorMap(svgRoot) {
-    colorToSvgId = {};
-    const allIds = new Set(Object.values(LINE_MAPPING).map(m => m.svgId));
-    for (const svgId of allIds) {
-      const group = findGroup(svgRoot, svgId);
-      if (!group) continue;
-      const shapes = group.querySelectorAll('path, polyline, line');
-      for (const s of shapes) {
-        const stroke = s.getAttribute('stroke');
-        if (stroke && stroke !== 'none' && !/^#fff/i.test(stroke)) {
-          colorToSvgId[stroke.toLowerCase()] = svgId;
-          break;
-        }
-      }
-    }
-  }
-
-  function colorLineNames(svgRoot, svgGroupTierMap) {
-    const nameGroup = findGroup(svgRoot, '线路名');
-    if (!nameGroup) return;
-    const paths = nameGroup.querySelectorAll('path');
-    for (const p of paths) {
-      const fill = p.getAttribute('fill');
-      if (!fill) continue;
-      const svgId = colorToSvgId[fill.toLowerCase()];
-      if (svgId && svgGroupTierMap[svgId]) {
-        p.setAttribute('fill', TIER_COLORS[svgGroupTierMap[svgId]]);
-      }
-    }
-  }
-
   function render(svgRoot, svgGroupTierMap) {
     ensureBreathStyle(svgRoot);
-    if (!colorToSvgId) buildColorMap(svgRoot); // must build before modifying colors
 
     for (const [svgId, tier] of Object.entries(svgGroupTierMap)) {
       const group = findGroup(svgRoot, svgId);
@@ -89,7 +55,7 @@ const SvgRenderer = (() => {
       }
     }
 
-    colorLineNames(svgRoot, svgGroupTierMap);
+    // line name coloring removed — group is hidden
   }
 
   function resetAll(svgRoot) {

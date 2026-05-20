@@ -1,8 +1,7 @@
 /**
  * Brushing & Linking — bidirectional cross-highlight between map and ranking list.
  *
- * v2: Network cascading hover — when hovering a line, its 1-hop transfer neighbours
- *     are dimmed to 50% while unconnected lines dim to 10%.
+ * v2: When hovering a line, all other lines turn uniform light gray.
  */
 
 const BrushingLinking = (() => {
@@ -39,19 +38,7 @@ const BrushingLinking = (() => {
   function normId(id){return UG[id]||id;}
   function findGroup(id){let g=svgRoot.querySelector('[id=\"'+id+'\"]');if(g)return g;const gb=G2[id];if(gb){g=svgRoot.querySelector('[id=\"'+gb+'\"]');if(g)return g;}const all=svgRoot.querySelectorAll('g');for(const el of all){const a=el.getAttribute('id');if(a===id||(gb&&a===gb))return el;}return null;}
 
-  // ── Map dimming (3 levels) ──────────────────────────────────────
-
-  function getNeighbourSvgIds(svgId) {
-    if (!adjacency) return new Set();
-    const lineNames = svgToLines[svgId] || [];
-    const neighbours = new Set();
-    for (const ln of lineNames) {
-      const adjs = adjacency.get(ln);
-      if (adjs) for (const a of adjs) neighbours.add(lineToSvg[a]);
-    }
-    neighbours.delete(svgId);
-    return neighbours;
-  }
+  // ── Map dimming ──────────────────────────────────────
 
   function dimByLevel(svgId) {
     for (const id of allSvgIds) {

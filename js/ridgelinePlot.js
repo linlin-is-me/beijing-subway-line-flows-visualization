@@ -6,8 +6,10 @@
 const RidgelinePlot = (() => {
   let overlay = null;
   let canvas = null;
+  let onHide = null;
 
-  function init(parentEl) {
+  function init(parentEl, _onHide) {
+    onHide = _onHide || null;
     overlay = document.createElement('div');
     overlay.className = 'ridgeline-overlay';
     overlay.style.display = 'none';
@@ -28,7 +30,7 @@ const RidgelinePlot = (() => {
   }
 
   function show()  { overlay.style.display = 'flex'; resize(); render(); }
-  function hide()  { overlay.style.display = 'none'; }
+  function hide()  { overlay.style.display = 'none'; if (onHide) onHide(); }
   function toggle() { overlay.style.display === 'flex' ? hide() : show(); }
 
   let currentDate = null;

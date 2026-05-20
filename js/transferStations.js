@@ -95,7 +95,6 @@ const TransferStations = (() => {
           lines: [...st.lines]
         });
       }
-      console.log('Transfer stations loaded:', stationData.length);
     } catch (e) {
       console.error('TransferStations init failed:', e);
       stationData = [];
@@ -145,7 +144,7 @@ const TransferStations = (() => {
     for (const p of pressures) {
       let color, radius, strokeW, hasPulse;
       if (p.pressure >= 5) {
-        color = '#ff0000'; radius = 20; strokeW = 5; hasPulse = true;   // pure red
+        color = '#ff0000'; radius = 15; strokeW = 5; hasPulse = true;   // pure red
       } else if (p.pressure >= 4) {
         color = '#fde725'; radius = 10; strokeW = 4; hasPulse = true;   // yellow
       } else {
