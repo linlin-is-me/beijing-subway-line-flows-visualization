@@ -2,10 +2,8 @@
  * Main controller: 4 modes (year / month / day / hour) + playback.
  */
 (async function main() {
-  const yearPicker  = document.getElementById('year-picker');
-  const monthPicker = document.getElementById('month-picker');
   const dayPicker   = document.getElementById('day-picker');
-  const hourDisplay = document.getElementById('hour-display');
+  const hourPicker = document.getElementById('hour-picker');
   const modeBtns    = document.querySelectorAll('.mode-btn');
   const svgContainer= document.getElementById('svg-container');
   const legendCont  = document.getElementById('legend');
@@ -44,10 +42,8 @@
   } catch (err) { loadingEl.textContent = `数据加载失败: ${err.message}`; loadingEl.classList.add('error'); console.error(err); return; }
   if (!flowData.days.length) { loadingEl.textContent = '没有可用的日期数据'; loadingEl.classList.add('error'); return; }
 
-  yearPicker.innerHTML = flowData.years.map(y => `<option value="${y}">${y} 年</option>`).join('');
-  yearPicker.value = flowData.years[flowData.years.length - 1];
-  monthPicker.min = flowData.months[0]; monthPicker.max = flowData.months[flowData.months.length - 1]; monthPicker.value = flowData.months[flowData.months.length - 1];
-  dayPicker.min   = flowData.days[0]; dayPicker.max   = flowData.days[flowData.days.length - 1]; dayPicker.value = flowData.days[flowData.days.length - 1];
+  dayPicker.min = flowData.days[0]; dayPicker.max = flowData.days[flowData.days.length - 1];
+  dayPicker.value = flowData.days[flowData.days.length - 1];
 
   try {
     const resp = await fetch('Beijing_Subway_System_Map_zh.svg');
@@ -95,8 +91,6 @@
     switchPicker(); rebuildSequence(); updateVisualization();
   }));
 
-  yearPicker.addEventListener('change', onPickerChange);
-  monthPicker.addEventListener('change', onPickerChange);
   dayPicker.addEventListener('change', onPickerChange);
   function onPickerChange() { if (playing) return; rebuildSequence(); updateVisualization(); }
 
@@ -118,22 +112,16 @@
   document.addEventListener('mousemove',(e)=>{if(!scrubbing)return;scrubTo(getScrubFraction(e));});
   document.addEventListener('mouseup',()=>{if(!scrubbing)return;scrubbing=false;progressBg.classList.remove('dragging');if(wasPlayingBeforeScrub)startPlayback();});
 
-  function switchPicker() {
-    yearPicker.style.display = (currentMode==='year'||currentMode==='month')?'':'none';
-    monthPicker.style.display = (currentMode==='day')?'':'none';
-    dayPicker.style.display = (currentMode==='hour')?'':'none';
-    hourDisplay.style.display = (currentMode==='hour')?'':'none';
-    tidalSect.style.display = (currentMode==='hour')?'':'none';
-  }
+  function switchPicker(){tidalSect.style.display=(currentMode=="hour")?"":"none";}
   function getSequence() {
     if(currentMode==='year')return flowData.years;
-    if(currentMode==='month'){const y=yearPicker.value||flowData.years[flowData.years.length-1];return flowData.months.filter(m=>m.startsWith(y));}
-    if(currentMode==='day'){const m=monthPicker.value;if(!m)return[];return flowData.getDaysOfMonth(m);}
+    if(currentMode==="month"){const d=dayPicker.value;if(!d)return[];const y=d.substring(0,4);return flowData.months.filter(m=>m.startsWith(y));}
+    if(currentMode==="day"){const d=dayPicker.value;if(!d)return[];const m=d.substring(0,7);return flowData.getDaysOfMonth(m);}
     return DataLoader.HOUR_SLOTS;
   }
   function rebuildSequence() { seqKeys=getSequence(); seqIndex=currentMode==='hour'?0:Math.max(0,seqKeys.length-1); updateProgressUI(); }
   function applySeqIndex() {
-    if(currentMode==='year')yearPicker.value=seqKeys[seqIndex];else if(currentMode==='month')monthPicker.value=seqKeys[seqIndex];else if(currentMode==='day')dayPicker.value=seqKeys[seqIndex];
+    if(currentMode==="day")dayPicker.value=seqKeys[seqIndex];
   }
   function getFlowForIndex() {
     if(currentMode==='year')return flowData.getFlowByYear(seqKeys[seqIndex]);if(currentMode==='month')return flowData.getFlowByMonth(seqKeys[seqIndex]);if(currentMode==='day')return flowData.getFlowByDay(seqKeys[seqIndex]);
@@ -168,7 +156,7 @@
 
   function togglePlayback() { if(playing){stopPlayback();return;} playing=true;btnPlay.textContent='⏸';btnPlay.classList.add('playing');disableControlsDuringPlayback(true);scheduleNextStep(); }
   function stopPlayback() { playing=false;if(playTimer){clearTimeout(playTimer);playTimer=null;}if(rafId){cancelAnimationFrame(rafId);rafId=null;}btnPlay.textContent='▶';btnPlay.classList.remove('playing');disableControlsDuringPlayback(false);scheduleRankingUpdate(); }
-  function disableControlsDuringPlayback(l){modeBtns.forEach(b=>b.disabled=l);yearPicker.disabled=l;monthPicker.disabled=l;dayPicker.disabled=l;}
+  function disableControlsDuringPlayback(l){modeBtns.forEach(b=>b.disabled=l);dayPicker.disabled=l;}
   function scheduleNextStep(){if(!playing)return;if(seqIndex>=seqKeys.length-1){stopPlayback();return;}seqIndex++;applySeqIndex();rafId=requestAnimationFrame(()=>{rafId=null;if(!playing)return;renderCurrentFrame();updateProgressUI();playTimer=setTimeout(scheduleNextStep,parseInt(speedSel.value,10));});}
   function stepForward(){if(seqIndex>=seqKeys.length-1)return;seqIndex++;applySeqIndex();renderCurrentFrame();updateProgressUI();}
   function stepBack(){if(seqIndex<=0)return;seqIndex--;applySeqIndex();renderCurrentFrame();updateProgressUI();}
@@ -179,7 +167,7 @@
     SvgRenderer.resetAll(svgRoot);const lineTiers=classifyFlows(lineFlows);const glowSvgId=findTopSvgGroup(lineFlows);const groupTierMap=buildSvgGroupTierMap(lineTiers);if(glowSvgId){groupTierMap[glowSvgId]=6;for(const[n,c]of Object.entries(LINE_MAPPING)){if(c.svgId===glowSvgId)lineTiers[n]=6;}}
     SvgRenderer.render(svgRoot,groupTierMap);const pressures=TransferStations.computePressures(lineTiers);TransferStations.renderMarkers(svgRoot,pressures);const dirs=computeDirections();FlowParticles.update(groupTierMap,dirs,lineFlows);
     titleEl.textContent=`${label} 客流量分布`;updateSceneTags();updateLegend(lineFlows,lineTiers);
-    if(currentMode==='hour')hourDisplay.textContent=label;
+    if(currentMode==='hour')
     if(currentMode==='hour'){if(!tidalLine)tidalLine=Object.keys(lineFlows)[0];tidalName.textContent=tidalLine;TidalChart.render(dayPicker.value,tidalLine,DataLoader.HOUR_SLOTS,(date,slot)=>flowData.getInOutByHour(date,slot));}
     if(!playing){updateRanking(lineFlows,lineTiers,dirs,buildSparkData(getCurrentDate()),computeTII());}
     if(viewActive.sm)renderSmallMultiples();
@@ -189,7 +177,7 @@
   function scheduleRankingUpdate(){if(rankingPending)return;rankingPending=true;requestAnimationFrame(()=>{rankingPending=false;const lf=getFlowForIndex();if(!lf)return;const lt=classifyFlows(lf);const tid=findTopSvgGroup(lf);if(tid)for(const[n,c]of Object.entries(LINE_MAPPING)){if(c.svgId===tid)lt[n]=6;}updateRanking(lf,lt,computeDirections(),buildSparkData(getCurrentDate()),computeTII());});}
   function updateProgressUI(){const t=seqKeys.length;const pct=t>0?Math.max(0,Math.min(100,(seqIndex+1)/t*100)):0;progressLbl.textContent=t>0?`${Math.max(1,seqIndex+1)}/${t}`:'0/0';progressFill.style.width=`${pct.toFixed(1)}%`;thumb.style.left=`${pct.toFixed(1)}%`;}
 
-  function updateVisualization(){const pv=currentMode==='year'?yearPicker.value:currentMode==='month'?monthPicker.value:currentMode==='day'?dayPicker.value:seqKeys[0];const idx=seqKeys.indexOf(pv);if(idx>=0)seqIndex=idx;updateProgressUI();const lf=getFlowForIndex();if(!lf)return;renderCurrentFrame();const lt=classifyFlows(lf);const tid=findTopSvgGroup(lf);if(tid)for(const[n,c]of Object.entries(LINE_MAPPING)){if(c.svgId===tid)lt[n]=6;}updateRanking(lf,lt,computeDirections(),buildSparkData(getCurrentDate()),computeTII());}
+  function updateVisualization(){const pv=dayPicker.value;const idx=seqKeys.indexOf(pv);if(idx>=0)seqIndex=idx;updateProgressUI();const lf=getFlowForIndex();if(!lf)return;renderCurrentFrame();const lt=classifyFlows(lf);const tid=findTopSvgGroup(lf);if(tid)for(const[n,c]of Object.entries(LINE_MAPPING)){if(c.svgId===tid)lt[n]=6;}updateRanking(lf,lt,computeDirections(),buildSparkData(getCurrentDate()),computeTII());}
 
   function renderLegend(){legendCont.innerHTML='';for(let t=6;t>=1;t--){const d=document.createElement('div');d.className='legend-item';d.innerHTML=`<span class="legend-line" style="--legend-width:${STROKE_WIDTH_MAP[t]}px;--legend-color:${TIER_COLORS[t]};"></span><span class="legend-label">${TIER_LABELS[t]}</span><span class="legend-width">${STROKE_WIDTH_MAP[t]}px</span>`;legendCont.appendChild(d);}}
   function updateLegend(lf,lt){const v=Object.values(lf).filter(x=>typeof x==='number');const s=[...v].sort((a,b)=>a-b);const[p20,p40,p60,p80]=[20,40,60,80].map(p=>percentile(s,p));const labels=[`> ${p80.toFixed(2)} 万`,`${p60.toFixed(2)} ~ ${p80.toFixed(2)} 万`,`${p40.toFixed(2)} ~ ${p60.toFixed(2)} 万`,`${p20.toFixed(2)} ~ ${p40.toFixed(2)} 万`,`≤ ${p20.toFixed(2)} 万`];legendCont.querySelectorAll('.legend-item').forEach((item,i)=>{const lbl=item.querySelector('.legend-label');const old=item.querySelector('.legend-threshold');if(old)old.remove();if(i===0)return;if(lbl){const sp=document.createElement('span');sp.className='legend-threshold';sp.textContent=labels[i-1];lbl.after(sp);}});}

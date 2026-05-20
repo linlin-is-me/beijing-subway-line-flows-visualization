@@ -70,9 +70,13 @@ body {
   padding: 10px 20px;
   flex-wrap: wrap;
   justify-content: center;
-  position: relative;
-  z-index: 100;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background: #1a1a2e;
 }
+.controls * { pointer-events: auto; }
+.picker-wrap { position: relative; z-index: 99999; }
 
 /* Mode selector buttons */
 .mode-selector {
