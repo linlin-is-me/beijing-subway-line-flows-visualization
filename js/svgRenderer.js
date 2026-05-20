@@ -83,10 +83,8 @@ const SvgRenderer = (() => {
 
         if (tier === 6) {
           shape.setAttribute('stroke-dasharray', '40,3');
-          shape.classList.add('tier6-pulse');
         } else {
           shape.removeAttribute('stroke-dasharray');
-          shape.classList.remove('tier6-pulse');
         }
       }
     }
