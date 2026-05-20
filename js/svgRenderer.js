@@ -16,7 +16,7 @@ const SvgRenderer = (() => {
 
   // Garbled ID support for new SVG (UTF-8 byte HTML entities → Windows-1252 DOM ids)
   function toSvgId(s){const b=new TextEncoder().encode(s);return new TextDecoder('windows-1252').decode(b);}
-  const GID={};['房山+燕房线','昌平线','亦庄线','亦庄T1线','S1线','西郊线','首都机场线','大兴机场线'].forEach(n=>GID[n]=toSvgId(n));
+  const GID={};['房山+燕房线','昌平线','亦庄线','亦庄T1线','S1线','西郊线','首都机场线','大兴机场线','线路名'].forEach(n=>GID[n]=toSvgId(n));
   function findGroup(root,id){
     let g=root.querySelector('[id=\"'+id+'\"]');if(g)return g;
     const gb=GID[id];if(gb){g=root.querySelector('[id=\"'+gb+'\"]');if(g)return g;}
@@ -24,8 +24,42 @@ const SvgRenderer = (() => {
     return null;
   }
 
+  let colorToSvgId = null; // lazily built: original stroke color → svgId
+
+  function buildColorMap(svgRoot) {
+    colorToSvgId = {};
+    const allIds = new Set(Object.values(LINE_MAPPING).map(m => m.svgId));
+    for (const svgId of allIds) {
+      const group = findGroup(svgRoot, svgId);
+      if (!group) continue;
+      const shapes = group.querySelectorAll('path, polyline, line');
+      for (const s of shapes) {
+        const stroke = s.getAttribute('stroke');
+        if (stroke && stroke !== 'none' && !/^#fff/i.test(stroke)) {
+          colorToSvgId[stroke.toLowerCase()] = svgId;
+          break;
+        }
+      }
+    }
+  }
+
+  function colorLineNames(svgRoot, svgGroupTierMap) {
+    const nameGroup = findGroup(svgRoot, '线路名');
+    if (!nameGroup) return;
+    const paths = nameGroup.querySelectorAll('path');
+    for (const p of paths) {
+      const fill = p.getAttribute('fill');
+      if (!fill) continue;
+      const svgId = colorToSvgId[fill.toLowerCase()];
+      if (svgId && svgGroupTierMap[svgId]) {
+        p.setAttribute('fill', TIER_COLORS[svgGroupTierMap[svgId]]);
+      }
+    }
+  }
+
   function render(svgRoot, svgGroupTierMap) {
     ensureBreathStyle(svgRoot);
+    if (!colorToSvgId) buildColorMap(svgRoot); // must build before modifying colors
 
     for (const [svgId, tier] of Object.entries(svgGroupTierMap)) {
       const group = findGroup(svgRoot, svgId);
@@ -56,6 +90,8 @@ const SvgRenderer = (() => {
         }
       }
     }
+
+    colorLineNames(svgRoot, svgGroupTierMap);
   }
 
   function resetAll(svgRoot) {
