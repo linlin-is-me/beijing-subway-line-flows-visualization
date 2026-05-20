@@ -15,22 +15,21 @@ const STROKE_WIDTH_MAP = {
 };
 
 const TIER_LABELS = {
-  1: '很低',
-  2: '较低',
-  3: '中等',
-  4: '较高',
-  5: '很高',
-  6: '最高'
+  1: '极空闲',
+  2: '较空闲',
+  3: '客流平稳',
+  4: '轻度拥挤',
+  5: '中度拥挤',
+  6: '极度爆满'
 };
 
-// Viridis-based perceptually uniform sequential colormap
 const TIER_COLORS = {
-  1: '#440154',  // dark purple
-  2: '#3b528b',  // blue
-  3: '#21918c',  // teal
-  4: '#5ec962',  // green
-  5: '#fde725',  // yellow
-  6: '#ff8800'   // orange (top — stands out from sequential scale)
+  1: '#A7E6CB',  // 浅薄荷绿 极空闲
+  2: '#34D399',  // 薄荷绿 较空闲
+  3: '#0EA5E9',  // 天青蓝 客流平稳
+  4: '#2563EB',  // 宝蓝 轻度拥挤
+  5: '#A78BFA',  // 浅紫罗兰 中度拥挤
+  6: '#5B21B6'   // 深茄紫 极度爆满
 };
 
 /**

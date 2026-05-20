@@ -532,7 +532,7 @@ body {
 }
 
 #svg-container svg g[id] { pointer-events: all; }
-#svg-container svg g[id] path[stroke] { pointer-events: stroke; cursor: pointer; }
+#svg-container svg g[id] path[stroke] { pointer-events: stroke; cursor: pointer; filter: drop-shadow(0 0 0.4px rgba(0,0,0,0.45)); }
 
 #svg-container svg text {
   font-size: 16px !important;

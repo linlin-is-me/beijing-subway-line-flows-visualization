@@ -172,7 +172,7 @@
   function renderCurrentFrame() {
     const label=getLabelForIndex();const lineFlows=getFlowForIndex();if(!lineFlows){titleEl.textContent=`${label} — 无数据`;return;}
     const curRanking=computeRanking(lineFlows);const prevFlows=getPrevFlowForIndex();TooltipManager.updateData(lineFlows,curRanking,computeRanking(prevFlows));
-    SvgRenderer.resetAll(svgRoot);const lineTiers=classifyFlows(lineFlows);const glowSvgId=findTopSvgGroup(lineFlows);const groupTierMap=buildSvgGroupTierMap(lineTiers);if(glowSvgId)groupTierMap[glowSvgId]=6;
+    SvgRenderer.resetAll(svgRoot);const lineTiers=classifyFlows(lineFlows);const glowSvgId=findTopSvgGroup(lineFlows);const groupTierMap=buildSvgGroupTierMap(lineTiers);if(glowSvgId){groupTierMap[glowSvgId]=6;for(const[n,c]of Object.entries(LINE_MAPPING)){if(c.svgId===glowSvgId)lineTiers[n]=6;}}
     SvgRenderer.render(svgRoot,groupTierMap);const pressures=TransferStations.computePressures(lineTiers);TransferStations.renderMarkers(svgRoot,pressures);const dirs=computeDirections();FlowParticles.update(groupTierMap,dirs,lineFlows);
     titleEl.textContent=`${label} 客流量分布`;updateSceneTags();updateLegend(lineFlows,lineTiers);
     if(currentMode==='hour')hourDisplay.textContent=label;

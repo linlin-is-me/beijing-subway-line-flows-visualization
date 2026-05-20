@@ -133,7 +133,7 @@ const TransferStations = (() => {
       } else if (p.pressure >= 3) {
         color = '#fde725'; radius = 10; strokeW = 4; hasPulse = true;   // yellow
       } else {
-        color = '#5ec962'; radius = 8;  strokeW = 3; hasPulse = false;  // green
+        color = '#047857'; radius = 8;  strokeW = 3; hasPulse = false;  // green
       }
 
       const ring = document.createElementNS('http://www.w3.org/2000/svg', 'circle');

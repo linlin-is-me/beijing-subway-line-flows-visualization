@@ -10,7 +10,7 @@ const SvgRenderer = (() => {
     if (styleInjected) return;
     styleInjected = true;
     const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
-    style.textContent = `@keyframes breath{0%,100%{opacity:1}50%{opacity:.55}}.tier6-pulse{animation:breath 2s ease-in-out infinite}`;
+    style.textContent = `@keyframes breath{0%,100%{opacity:1}50%{opacity:.55}}.tier6-pulse{animation:breath 4s ease-in-out infinite}`;
     svgRoot.appendChild(style);
   }
 
@@ -43,6 +43,7 @@ const SvgRenderer = (() => {
         if (stroke.toLowerCase() === '#fff' || stroke.toLowerCase() === '#ffffff') continue;
 
         shape.setAttribute('stroke-width', width);
+        shape.setAttribute('stroke', TIER_COLORS[tier]);
         shape.setAttribute('stroke-linecap', 'round');
         shape.setAttribute('stroke-linejoin', 'round');
 
