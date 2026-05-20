@@ -492,7 +492,7 @@ body {
 }
 
 .pressure-marker.pressure-high-risk {
-  filter: drop-shadow(0 0 8px rgba(255,68,68,0.9));
+  filter: drop-shadow(0 0 8px rgba(255,0,0,0.9));
 }
 
 @keyframes pressure-pulse {
@@ -528,7 +528,7 @@ body {
 }
 .pt-row { white-space: nowrap; line-height: 1.6; }
 .pt-row b { font-size: 14px; }
-.pt-red { color: #ff4444; }
+.pt-red { color: #ff0000; }
 .pt-yel { color: #fde725; }
 .pt-grn { color: #5ec962; }
 
