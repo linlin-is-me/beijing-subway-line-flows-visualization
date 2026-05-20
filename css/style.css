@@ -547,12 +547,26 @@ body {
 #svg-container {
   width: 100%;
   height: auto;
+  position: relative;
 }
 
 #svg-container svg {
   width: 100%;
   height: auto;
   display: block;
+  position: relative;
+  z-index: 0;
+}
+
+#heatmap-canvas {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: auto;
+  pointer-events: none;
+  opacity: 0.7;
+  z-index: 1;
+  mix-blend-mode: multiply;
 }
 
 #svg-container svg g[id] { pointer-events: all; }

@@ -117,5 +117,26 @@ const SvgRenderer = (() => {
     }
   }
 
-  return { render, resetAll };
+  function renderUniform(svgRoot, color) {
+    const allGroupIds = new Set(Object.values(LINE_MAPPING).map(m => m.svgId));
+    for (const svgId of allGroupIds) {
+      const group = findGroup(svgRoot, svgId);
+      if (!group) continue;
+      const shapes = group.querySelectorAll('path, polyline, line, polygon');
+      for (const shape of shapes) {
+        const fill = shape.getAttribute('fill');
+        if (fill && fill !== 'none') continue;
+        const stroke = shape.getAttribute('stroke');
+        if (!stroke || stroke === 'none') continue;
+        if (/^#fff/i.test(stroke)) continue;
+        shape.setAttribute('stroke-width', DEFAULT_WIDTH);
+        shape.setAttribute('stroke', color);
+        shape.removeAttribute('stroke-dasharray');
+        shape.removeAttribute('stroke-linecap');
+        shape.removeAttribute('stroke-linejoin');
+      }
+    }
+  }
+
+  return { render, resetAll, renderUniform };
 })();

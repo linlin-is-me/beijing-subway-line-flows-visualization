@@ -15,6 +15,7 @@
   const tidalName   = document.getElementById('tidal-line-name');
   const btnSM       = document.getElementById('btn-sm');
   const btnRidge    = document.getElementById('btn-ridge');
+  const btnHeatmap  = document.getElementById('btn-heatmap');
   const btnPlay     = document.getElementById('btn-play');
   const btnStepBack = document.getElementById('btn-step-back');
   const btnStepFwd  = document.getElementById('btn-step-fwd');
@@ -25,11 +26,11 @@
   const thumb       = document.getElementById('progress-thumb');
 
   let currentMode = 'day';
-  let flowData, svgRoot, tidalLine = null;
+  let flowData, svgRoot, tidalLine = null, heatmapCanvas;
   let playing = false, playTimer = null, rafId = null;
   let seqIndex = 0, seqKeys = [];
   let scrubbing = false, wasPlayingBeforeScrub = false;
-  const viewActive = { sm: false, ridge: false };
+  const viewActive = { sm: false, ridge: false, heatmap: false };
 
   const TAG_MAP = {
     day_type: { normal: '工作日', weekend: '周末', holiday: '长假/春节', return: '返程高峰', exodus: '节前离京' },
@@ -58,6 +59,13 @@
     const lineNameGarbled = new TextDecoder('windows-1252').decode(new TextEncoder().encode('线路名'));
     const lineNameGroup = svgRoot.querySelector('#' + CSS.escape(lineNameGarbled));
     if (lineNameGroup) lineNameGroup.style.display = 'none';
+    // create heatmap canvas overlay
+    heatmapCanvas = document.createElement('canvas');
+    heatmapCanvas.id = 'heatmap-canvas';
+    heatmapCanvas.width = 2400;
+    heatmapCanvas.height = 2400;
+    heatmapCanvas.style.display = 'none';
+    svgContainer.appendChild(heatmapCanvas);
   } catch (err) { loadingEl.textContent = `SVG 加载失败: ${err.message}`; loadingEl.classList.add('error'); console.error(err); return; }
 
   // Scale station name labels by 1.4x
@@ -106,13 +114,19 @@
   btnStepFwd.addEventListener('click', () => { stopPlayback(); stepForward(); });
 
   // View toggle buttons
-  function clearViewBtns() { for (const b of [btnSM, btnRidge]) b.classList.remove('active'); }
+  function clearViewBtns() { for (const b of [btnSM, btnRidge, btnHeatmap]) b.classList.remove('active'); }
   btnSM.addEventListener('click', () => {
     viewActive.sm = SmallMultiples.toggle();
     btnSM.classList.toggle('active', viewActive.sm);
     if (viewActive.sm) renderSmallMultiples();
   });
   btnRidge.addEventListener('click', () => { RidgelinePlot.toggle(); btnRidge.classList.toggle('active'); if (!viewActive.ridge) renderRidgeline(); });
+  btnHeatmap.addEventListener('click', () => {
+    viewActive.heatmap = !viewActive.heatmap;
+    btnHeatmap.classList.toggle('active', viewActive.heatmap);
+    if (heatmapCanvas) heatmapCanvas.style.display = viewActive.heatmap ? '' : 'none';
+    renderCurrentFrame();
+  });
   function getScrubFraction(e) { const r = progressBg.getBoundingClientRect(); return Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)); }
   function scrubTo(f) { f=Math.max(0,Math.min(1,f)); const idx=Math.round(f*Math.max(0,seqKeys.length-1)); if(idx===seqIndex)return; seqIndex=idx;applySeqIndex();renderCurrentFrame();updateProgressUI(); }
   progressBg.addEventListener('mousedown',(e)=>{scrubbing=true;wasPlayingBeforeScrub=playing;if(playing)stopPlayback();progressBg.classList.add('dragging');scrubTo(getScrubFraction(e));});
@@ -172,7 +186,9 @@
     const label=getLabelForIndex();const lineFlows=getFlowForIndex();if(!lineFlows){titleEl.textContent=`${label} — 无数据`;return;}
     const curRanking=computeRanking(lineFlows);const prevFlows=getPrevFlowForIndex();TooltipManager.updateData(lineFlows,curRanking,computeRanking(prevFlows));
     SvgRenderer.resetAll(svgRoot);const lineTiers=classifyFlows(lineFlows);const glowSvgId=findTopSvgGroup(lineFlows);const groupTierMap=buildSvgGroupTierMap(lineTiers);if(glowSvgId){groupTierMap[glowSvgId]=6;for(const[n,c]of Object.entries(LINE_MAPPING)){if(c.svgId===glowSvgId)lineTiers[n]=6;}}
-    SvgRenderer.render(svgRoot,groupTierMap);const pressures=TransferStations.computePressures(lineTiers);TransferStations.renderMarkers(svgRoot,pressures);const dirs=computeDirections();FlowParticles.update(groupTierMap,dirs,lineFlows);
+    if(viewActive.heatmap){SvgRenderer.renderUniform(svgRoot,'#999999');}else{SvgRenderer.render(svgRoot,groupTierMap);}
+    const pressures=TransferStations.computePressures(lineTiers);TransferStations.renderMarkers(svgRoot,pressures);HeatmapRenderer.render(heatmapCanvas,pressures);const dirs=computeDirections();
+    if(!viewActive.heatmap)FlowParticles.update(groupTierMap,dirs,lineFlows);
     titleEl.textContent=`${label} 客流量分布`;updateSceneTags();updateLegend(lineFlows,lineTiers);
     if(currentMode==='hour')
     if(currentMode==='hour'){if(!tidalLine)tidalLine=Object.keys(lineFlows)[0];tidalName.textContent=tidalLine;TidalChart.render(dayPicker.value,tidalLine,DataLoader.HOUR_SLOTS,(date,slot)=>flowData.getInOutByHour(date,slot));}
