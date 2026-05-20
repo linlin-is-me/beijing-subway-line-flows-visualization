@@ -70,6 +70,10 @@
     } catch(e) {}
   });
 
+  // Hide built-in SVG legend
+  const legendG = svgRoot.querySelector('g[id=\"' + (function(s){const b=new TextEncoder().encode(s);return new TextDecoder('windows-1252').decode(b);})('图例') + '\"]');
+  if (legendG) legendG.style.display = 'none';
+
   TooltipManager.init(svgRoot);
   BrushingLinking.init(svgRoot, rankingCont);
   TidalChart.init(document.getElementById('tidal-canvas'));
