@@ -492,7 +492,7 @@ body {
 }
 
 .pressure-marker.pressure-high-risk {
-  filter: drop-shadow(0 0 8px rgba(255,0,0,0.9));
+  filter: drop-shadow(0 0 10px rgba(255,0,0,0.9));
 }
 
 @keyframes pressure-pulse {

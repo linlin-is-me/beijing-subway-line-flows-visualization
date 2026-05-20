@@ -51,6 +51,9 @@
     svgContainer.innerHTML = await resp.text();
     svgRoot = svgContainer.querySelector('svg');
     if (!svgRoot) throw new Error('No <svg> element found');
+    // hide the "Beijing Subway System Map" text watermark
+    const watermark = svgRoot.querySelector('#Beijing_Subway_System_Map_zh');
+    if (watermark) watermark.style.display = 'none';
   } catch (err) { loadingEl.textContent = `SVG 加载失败: ${err.message}`; loadingEl.classList.add('error'); console.error(err); return; }
 
   // Scale station name labels by 1.4x

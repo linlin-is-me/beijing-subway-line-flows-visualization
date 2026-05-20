@@ -145,7 +145,7 @@ const TransferStations = (() => {
     for (const p of pressures) {
       let color, radius, strokeW, hasPulse;
       if (p.pressure >= 5) {
-        color = '#ff0000'; radius = 16; strokeW = 5; hasPulse = true;   // vivid red
+        color = '#ff0000'; radius = 20; strokeW = 5; hasPulse = true;   // pure red
       } else if (p.pressure >= 4) {
         color = '#fde725'; radius = 10; strokeW = 4; hasPulse = true;   // yellow
       } else {
@@ -154,6 +154,19 @@ const TransferStations = (() => {
 
       const plabel = pressureLabel(p.pressure);
       const tipHtml = '<div class="pt-row"><b>' + p.name + '</b></div><div class="pt-row pt-' + (p.pressure >= 5 ? 'red' : p.pressure >= 4 ? 'yel' : 'grn') + '">' + plabel + '</div>';
+
+      // black outer border (slightly thinner for low-pressure stations)
+      const borderGap = p.pressure < 4 ? 3 : 4;
+      const borderWidth = p.pressure < 4 ? '2' : '3';
+      const outerHalf = radius + borderGap;
+      const outerPoints = `${p.cx},${p.cy - outerHalf} ${p.cx + outerHalf},${p.cy} ${p.cx},${p.cy + outerHalf} ${p.cx - outerHalf},${p.cy}`;
+      const border = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+      border.setAttribute('points', outerPoints);
+      border.setAttribute('fill', '#000000');
+      border.setAttribute('stroke', '#000000');
+      border.setAttribute('stroke-width', borderWidth);
+      border.setAttribute('pointer-events', 'none');
+      markerGroup.appendChild(border);
 
       const half = radius;
       const points = `${p.cx},${p.cy - half} ${p.cx + half},${p.cy} ${p.cx},${p.cy + half} ${p.cx - half},${p.cy}`;
