@@ -56,6 +56,7 @@ const BrushingLinking = (() => {
   function dimByLevel(svgId) {
     for (const id of allSvgIds) {
       if (id === svgId) continue;
+      if (STORED.has(id)) continue; // already dimmed, skip
       const group = findGroup(id);
       if (!group) continue;
       const shapes = group.querySelectorAll('path, polyline, line, polygon');

@@ -106,7 +106,7 @@ const TransferStations = (() => {
     return stationData.map(st => {
       let sum = 0;
       for (const l of st.lines) {
-        sum += lineTiers[l] || 1;
+        sum += lineTiers[dataLine(l)] || 1;
       }
       const avgTier = sum / st.lines.length;
       return {

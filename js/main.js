@@ -190,7 +190,6 @@
     const pressures=TransferStations.computePressures(lineTiers);TransferStations.renderMarkers(svgRoot,pressures);HeatmapRenderer.render(heatmapCanvas,pressures);const dirs=computeDirections();
     if(!viewActive.heatmap)FlowParticles.update(groupTierMap,dirs,lineFlows);
     titleEl.textContent=`${label} 客流量分布`;updateSceneTags();updateLegend(lineFlows,lineTiers);
-    if(currentMode==='hour')
     if(currentMode==='hour'){if(!tidalLine)tidalLine=Object.keys(lineFlows)[0];tidalName.textContent=tidalLine;TidalChart.render(dayPicker.value,tidalLine,DataLoader.HOUR_SLOTS,(date,slot)=>flowData.getInOutByHour(date,slot));}
     if(!playing){updateRanking(lineFlows,lineTiers,dirs,buildSparkData(getCurrentDate()),computeTII());}
     if(viewActive.sm)renderSmallMultiples();

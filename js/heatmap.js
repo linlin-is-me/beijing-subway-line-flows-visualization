@@ -88,15 +88,17 @@ const HeatmapRenderer = (() => {
       px[j + 3] = Math.min(255, a * 255);
     }
 
-    // 3. Paint ImageData onto an off-screen canvas, then upscale to main
+    // 3. Paint ImageData onto off-screen canvas, then upscale to main
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const off = document.createElement('canvas');
-    off.width = GRID; off.height = GRID;
-    off.getContext('2d').putImageData(imgData, 0, 0);
-
-    ctx.drawImage(off, 0, 0, canvas.width, canvas.height);
+    if (!HeatmapRenderer._off) {
+      HeatmapRenderer._off = document.createElement('canvas');
+      HeatmapRenderer._off.width = GRID;
+      HeatmapRenderer._off.height = GRID;
+    }
+    HeatmapRenderer._off.getContext('2d').putImageData(imgData, 0, 0);
+    ctx.drawImage(HeatmapRenderer._off, 0, 0, canvas.width, canvas.height);
   }
 
   return { render };
