@@ -155,10 +155,10 @@ const TransferStations = (() => {
       const plabel = pressureLabel(p.pressure);
       const tipHtml = '<div class="pt-row"><b>' + p.name + '</b></div><div class="pt-row pt-' + (p.pressure >= 5 ? 'red' : p.pressure >= 4 ? 'yel' : 'grn') + '">' + plabel + '</div>';
 
-      const ring = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      ring.setAttribute('cx', p.cx);
-      ring.setAttribute('cy', p.cy);
-      ring.setAttribute('r', radius);
+      const half = radius;
+      const points = `${p.cx},${p.cy - half} ${p.cx + half},${p.cy} ${p.cx},${p.cy + half} ${p.cx - half},${p.cy}`;
+      const ring = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+      ring.setAttribute('points', points);
       ring.setAttribute('fill', 'none');
       ring.setAttribute('stroke', color);
       ring.setAttribute('stroke-width', strokeW);
@@ -171,12 +171,13 @@ const TransferStations = (() => {
       markerGroup.appendChild(ring);
 
       if (hasPulse) {
-        const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        dot.setAttribute('cx', p.cx);
-        dot.setAttribute('cy', p.cy);
-        dot.setAttribute('r', p.pressure >= 5 ? '6' : '4');
+        const innerHalf = p.pressure >= 5 ? 6 : 4;
+        const innerPoints = `${p.cx},${p.cy - innerHalf} ${p.cx + innerHalf},${p.cy} ${p.cx},${p.cy + innerHalf} ${p.cx - innerHalf},${p.cy}`;
+        const dot = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        dot.setAttribute('points', innerPoints);
         dot.setAttribute('fill', color);
         dot.setAttribute('class', 'pressure-pulse' + (p.pressure >= 5 ? ' pressure-pulse-high' : ''));
+        dot.style.transformOrigin = `${p.cx}px ${p.cy}px`;
         dot.addEventListener('mouseover', (e) => { pTooltip.innerHTML = tipHtml; pTooltip.style.display = 'block'; });
         dot.addEventListener('mousemove', (e) => { pTooltip.style.left = (e.clientX + 12) + 'px'; pTooltip.style.top = (e.clientY + 12) + 'px'; });
         dot.addEventListener('mouseout', () => { pTooltip.style.display = 'none'; });
