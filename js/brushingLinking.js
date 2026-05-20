@@ -11,8 +11,10 @@ const BrushingLinking = (() => {
   let hoveredSvgId = null;
   let adjacency = null; // Map<lineName, Set<neighbourName>>
 
-  const DIM_HALF  = '0.5';
-  const DIM_FULL  = '0.1';
+  // Non-selected lines become uniform light gray
+  const DIM_GRAY = '#c8c8c8';
+  const DIM_GRAY_WIDTH = '2';
+  const STORED = new Map(); // groupId → [{el, stroke, strokeWidth}]
 
   const svgToLines = (() => {
     const map = {};
@@ -52,24 +54,34 @@ const BrushingLinking = (() => {
   }
 
   function dimByLevel(svgId) {
-    const neighbours = getNeighbourSvgIds(svgId);
     for (const id of allSvgIds) {
       if (id === svgId) continue;
       const group = findGroup(id);
       if (!group) continue;
-      if (neighbours.has(id)) {
-        group.setAttribute('opacity', DIM_HALF);
-      } else {
-        group.setAttribute('opacity', DIM_FULL);
+      const shapes = group.querySelectorAll('path, polyline, line, polygon');
+      const stored = [];
+      for (const shape of shapes) {
+        const stroke = shape.getAttribute('stroke');
+        if (!stroke || stroke === 'none' || /^#fff/i.test(stroke)) continue;
+        const fill = shape.getAttribute('fill');
+        if (fill && fill !== 'none') continue;
+        stored.push({ el: shape, stroke: stroke, strokeWidth: shape.getAttribute('stroke-width') });
+        shape.setAttribute('stroke', DIM_GRAY);
+        shape.setAttribute('stroke-width', DIM_GRAY_WIDTH);
       }
+      if (stored.length) STORED.set(id, stored);
     }
   }
 
   function clearDimmed() {
-    for (const id of allSvgIds) {
-      const group = findGroup(id);
-      if (group) group.removeAttribute('opacity');
+    for (const [, stored] of STORED) {
+      for (const { el, stroke, strokeWidth } of stored) {
+        el.setAttribute('stroke', stroke);
+        if (strokeWidth) el.setAttribute('stroke-width', strokeWidth);
+        else el.removeAttribute('stroke-width');
+      }
     }
+    STORED.clear();
   }
 
   // ── Ranking highlight ────────────────────────────────────────────
