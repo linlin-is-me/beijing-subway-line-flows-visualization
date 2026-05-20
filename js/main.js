@@ -54,6 +54,10 @@
     // hide the "Beijing Subway System Map" text watermark
     const watermark = svgRoot.querySelector('#Beijing_Subway_System_Map_zh');
     if (watermark) watermark.style.display = 'none';
+    // hide line name labels
+    const lineNameGarbled = new TextDecoder('windows-1252').decode(new TextEncoder().encode('线路名'));
+    const lineNameGroup = svgRoot.querySelector('#' + CSS.escape(lineNameGarbled));
+    if (lineNameGroup) lineNameGroup.style.display = 'none';
   } catch (err) { loadingEl.textContent = `SVG 加载失败: ${err.message}`; loadingEl.classList.add('error'); console.error(err); return; }
 
   // Scale station name labels by 1.4x
